@@ -20,6 +20,7 @@ import {
   Calendar,
   CheckCircle,
   UserCog,
+  IndianRupee,
 } from "lucide-react"
 
 interface NavItem {
@@ -115,6 +116,11 @@ export function DashboardNav() {
           icon: <Plus className="mr-2 h-4 w-4" />,
         },
       ],
+    },
+    {
+      title: "Price Management",
+      href: "/dashboard/price-management",
+      icon: <IndianRupee className="mr-2 h-4 w-4" />,
     },
     {
       title: "Analytics",
