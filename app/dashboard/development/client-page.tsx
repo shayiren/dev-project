@@ -4,25 +4,35 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Search, Plus, Download, MoreHorizontal, Eye, Edit, Trash2, List, Grid, Filter } from "lucide-react"
+import { Search, Plus, Download, MoreHorizontal, Eye, Edit, Trash2, List, Grid, FileUp } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
+
+interface Property {
+  id: string
+  unitNumber: string
+  projectName: string
+  developerName: string
+  buildingName: string
+  phase: string
+  floorNumber: string
+  unitType: string
+  bedrooms: number
+  bathrooms: number
+  internalArea: number
+  externalArea: number
+  totalArea: number
+  price: number
+  status: string
+  totalPricePerSqft?: number
+  floorPlan?: string
+}
 
 export default function DevelopmentPage() {
   const router = useRouter()
@@ -52,8 +62,16 @@ export default function DevelopmentPage() {
   const [activeTab, setActiveTab] = useState("all")
   const [viewMode, setViewMode] = useState<"list" | "card">("list")
   const [isFilterOpen, setIsFilterOpen] = useState(false)
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [projectFilter, setProjectFilter] = useState("all")
+  const [filteredProperties2, setFilteredProperties2] = useState<any[]>([])
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [currentProperty, setCurrentProperty] = useState<Property | null>(null)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [propertyToDelete, setPropertyToDelete] = useState<string | null>(null)
+  const [selectedPropertyForReservation, setSelectedPropertyForReservation] = useState<any | null>(null)
+  const [isReservationDialogOpen, setIsReservationDialogOpen] = useState(false)
 
-  // Load properties from localStorage on component mount
   useEffect(() => {
     loadProperties()
   }, [])
@@ -211,7 +229,7 @@ export default function DevelopmentPage() {
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
     const url = URL.createObjectURL(blob)
     const link = document.createElement("a")
-    link.setAttribute("href", url)
+    link.href = url
     link.setAttribute("download", `properties_export.${format === "excel" ? "xlsx" : "csv"}`)
     link.style.visibility = "hidden"
     document.body.appendChild(link)
@@ -404,559 +422,431 @@ export default function DevelopmentPage() {
     }
   }
 
+  // Function to open the reservation dialog
+  const openReservationDialog = (property: any) => {
+    setSelectedPropertyForReservation(property)
+    setIsReservationDialogOpen(true)
+  }
+
+  const getStatusColor2 = (status: string) => {
+    switch (status) {
+      case "Available":
+        return "bg-green-100 text-green-800"
+      case "Reserved":
+        return "bg-yellow-100 text-yellow-800"
+      case "Sold":
+        return "bg-red-100 text-red-800"
+      case "Under Offer":
+        return "bg-blue-100 text-blue-800"
+      default:
+        return "bg-gray-100 text-gray-800"
+    }
+  }
+
+  const editProperty = (property: Property) => {
+    setCurrentProperty(property)
+    setIsEditDialogOpen(true)
+  }
+
+  const openDeleteDialog = (propertyId: string) => {
+    setPropertyToDelete(propertyId)
+    setIsDeleteDialogOpen(true)
+  }
+
+  const handleStatusChange2 = (property: any, newStatus: "Available" | "Reserved" | "Sold" | "Under Offer") => {
+    handleStatusChange(property, newStatus)
+  }
+
   return (
-    <div className="p-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Development</h1>
-          <p className="text-muted-foreground">Manage your development inventory</p>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-2">
-          <Button onClick={() => router.push("/dashboard/properties/add")}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Unit
-          </Button>
-        </div>
-      </div>
+   <div className="p-8">
+     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+       <div>
+         <h1 className="text-3xl font-bold tracking-tight">Development</h1>
+         <p className="text-muted-foreground">Manage your development inventory</p>
+       </div>
+       <div className="flex flex-col sm:flex-row gap-2">
+         <Button onClick={() => router.push("/dashboard/properties/add")}>
+           <Plus className="mr-2 h-4 w-4" />
+           Add Unit
+         </Button>
+         <Button variant="outline" onClick={() => router.push("/dashboard/properties/import")}>
+           <FileUp className="mr-2 h-4 w-4" />
+           Import
+         </Button>
+       </div>
+     </div>
 
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <div className="flex gap-4 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-[300px]">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search properties..."
-              className="w-full pl-8"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <Button variant="outline" onClick={() => setIsFilterOpen(!isFilterOpen)} className="flex gap-1">
-            <Filter className="h-4 w-4" />
-            <span>Filter</span>
-          </Button>
-        </div>
+     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+       <div className="flex gap-4 w-full sm:w-auto">
+         <div className="relative flex-1 sm:w-[300px]">
+           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+           <Input
+             type="search"
+             placeholder="Search properties..."
+             className="w-full pl-8"
+             value={searchQuery}
+             onChange={(e) => setSearchQuery(e.target.value)}
+           />
+         </div>
+       </div>
 
-        <div className="flex gap-2 w-full sm:w-auto justify-between sm:justify-end">
-          <div className="flex gap-1">
-            <Button
-              variant={viewMode === "list" ? "default" : "outline"}
-              size="icon"
-              onClick={() => setViewMode("list")}
-              className="rounded-l-md rounded-r-none"
-            >
-              <List className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={viewMode === "card" ? "default" : "outline"}
-              size="icon"
-              onClick={() => setViewMode("card")}
-              className="rounded-l-none rounded-r-md"
-            >
-              <Grid className="h-4 w-4" />
-            </Button>
-          </div>
+       <div className="flex gap-2 w-full sm:w-auto justify-between sm:justify-end">
+         <div className="flex gap-1">
+           <Button
+             variant={viewMode === "list" ? "default" : "outline"}
+             size="icon"
+             onClick={() => setViewMode("list")}
+             className="rounded-l-md rounded-r-none"
+           >
+             <List className="h-4 w-4" />
+           </Button>
+           <Button
+             variant={viewMode === "card" ? "default" : "outline"}
+             size="icon"
+             onClick={() => setViewMode("card")}
+             className="rounded-l-none rounded-r-md"
+           >
+             <Grid className="h-4 w-4" />
+           </Button>
+         </div>
 
-          <Button variant="outline" size="sm" className="flex gap-1" onClick={openExportDialog}>
-            <Download className="h-4 w-4" />
-            <span>Export</span>
-          </Button>
-        </div>
-      </div>
+         <Button variant="outline" size="sm" className="flex gap-1" onClick={openExportDialog}>
+           <Download className="h-4 w-4 mr-1" />
+           <span>Export</span>
+         </Button>
+       </div>
+     </div>
 
-      <Tabs defaultValue="all" className="w-full" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-5 mb-4">
-          <TabsTrigger value="all" className="rounded-md">
-            All
-          </TabsTrigger>
-          <TabsTrigger value="Available" className="rounded-md">
-            Available
-          </TabsTrigger>
-          <TabsTrigger value="Reserved" className="rounded-md">
-            Reserved
-          </TabsTrigger>
-          <TabsTrigger value="Under Offer" className="rounded-md">
-            Under Offer
-          </TabsTrigger>
-          <TabsTrigger value="Sold" className="rounded-md">
-            Sold
-          </TabsTrigger>
-        </TabsList>
+     <Tabs defaultValue="all" className="w-full" value={activeTab} onValueChange={setActiveTab}>
+       <TabsList className="grid grid-cols-5 mb-4">
+         <TabsTrigger value="all" className="rounded-md">
+           All
+         </TabsTrigger>
+         <TabsTrigger value="Available" className="rounded-md">
+           Available
+         </TabsTrigger>
+         <TabsTrigger value="Reserved" className="rounded-md">
+           Reserved
+         </TabsTrigger>
+         <TabsTrigger value="Under Offer" className="rounded-md">
+           Under Offer
+         </TabsTrigger>
+         <TabsTrigger value="Sold" className="rounded-md">
+           Sold
+         </TabsTrigger>
+       </TabsList>
 
-        <TabsContent value={activeTab} className="mt-0">
-          {isLoading ? (
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex justify-center items-center h-40">
-                  <p>Loading inventory...</p>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <div>
-              {/* Bulk actions */}
-              {selectedProperties.length > 0 && (
-                <div className="bg-muted p-4 rounded-md flex flex-col sm:flex-row justify-between items-center gap-2 mb-4">
-                  <span className="font-medium">{selectedProperties.length} properties selected</span>
-                  <div className="flex gap-2">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button size="sm">Bulk Actions</Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() => bulkChangeStatus("Available")}
-                          disabled={selectedProperties.every((id) => {
-                            const property = properties.find((p) => p.id === id)
-                            return property?.status === "Available"
-                          })}
-                        >
-                          Mark as Available
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => bulkChangeStatus("Reserved")}
-                          disabled={selectedProperties.every((id) => {
-                            const property = properties.find((p) => p.id === id)
-                            return property?.status === "Reserved"
-                          })}
-                        >
-                          Mark as Reserved
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => bulkChangeStatus("Sold")}
-                          disabled={selectedProperties.every((id) => {
-                            const property = properties.find((p) => p.id === id)
-                            return property?.status === "Sold"
-                          })}
-                        >
-                          Mark as Sold
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => bulkChangeStatus("Under Offer")}
-                          disabled={selectedProperties.every((id) => {
-                            const property = properties.find((p) => p.id === id)
-                            return property?.status === "Under Offer"
-                          })}
-                        >
-                          Mark as Under Offer
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                    <Button variant="outline" size="sm" onClick={openExportDialog}>
-                      <Download className="h-4 w-4 mr-1" />
-                      Export
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => setSelectedProperties([])}>
-                      Clear Selection
-                    </Button>
-                  </div>
-                </div>
-              )}
-              {viewMode === "list" ? (
-                <div className="rounded-md border overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[50px]">
-                          <Checkbox
-                            checked={
-                              filteredProperties.length > 0 && selectedProperties.length === filteredProperties.length
-                            }
-                            onCheckedChange={toggleSelectAll}
-                            aria-label="Select all"
-                          />
-                        </TableHead>
-                        <TableHead>Unit</TableHead>
-                        <TableHead>Project</TableHead>
-                        <TableHead>Phase</TableHead>
-                        <TableHead>Building</TableHead>
-                        <TableHead>Floor</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Beds</TableHead>
-                        <TableHead>Area (sqft)</TableHead>
-                        <TableHead>Price/sqft</TableHead>
-                        <TableHead>Price</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredProperties.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={13} className="text-center py-4">
-                            No properties found
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        filteredProperties.map((property) => (
-                          <TableRow key={property.id} className={getRowBackgroundColor(property.status)}>
-                            <TableCell>
-                              <Checkbox
-                                checked={selectedProperties.includes(property.id)}
-                                onCheckedChange={() => togglePropertySelection(property.id)}
-                                aria-label={`Select ${property.unitNumber}`}
-                              />
-                            </TableCell>
-                            <TableCell className="font-medium">{property.unitNumber}</TableCell>
-                            <TableCell>{property.projectName}</TableCell>
-                            <TableCell>{property.phase || "Phase 1"}</TableCell>
-                            <TableCell>{property.buildingName}</TableCell>
-                            <TableCell>{property.floorNumber}</TableCell>
-                            <TableCell>{property.unitType}</TableCell>
-                            <TableCell>{property.bedrooms}</TableCell>
-                            <TableCell>{property.totalArea || property.area} sqft</TableCell>
-                            <TableCell>
-                              {property.totalPricePerSqft ? `AED ${property.totalPricePerSqft}/sqft` : "-"}
-                            </TableCell>
-                            <TableCell>AED {property.price?.toLocaleString()}</TableCell>
-                            <TableCell>
-                              <Badge className={getStatusColor(property.status)}>{property.status}</Badge>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                    <span className="sr-only">Open menu</span>
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  {property.floorPlan && (
-                                    <DropdownMenuItem onClick={() => viewFloorPlan(property.floorPlan)}>
-                                      <Eye className="mr-2 h-4 w-4" />
-                                      View Floor Plan
-                                    </DropdownMenuItem>
-                                  )}
-                                  <DropdownMenuItem
-                                    onClick={() => router.push(`/dashboard/properties/edit/${property.id}`)}
-                                  >
-                                    <Edit className="mr-2 h-4 w-4" />
-                                    Edit
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem>
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Delete
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() => handleStatusChange(property, "Available")}
-                                    disabled={property.status === "Available"}
-                                  >
-                                    Mark as Available
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() => handleStatusChange(property, "Reserved")}
-                                    disabled={property.status === "Reserved"}
-                                  >
-                                    Mark as Reserved
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() => handleStatusChange(property, "Sold")}
-                                    disabled={property.status === "Sold"}
-                                  >
-                                    Mark as Sold
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() => handleStatusChange(property, "Under Offer")}
-                                    disabled={property.status === "Under Offer"}
-                                  >
-                                    Mark as Under Offer
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredProperties.length === 0 ? (
-                    <div className="col-span-full text-center py-4">No properties found</div>
-                  ) : (
-                    filteredProperties.map((property) => (
-                      <Card key={property.id} className={getRowBackgroundColor(property.status)}>
-                        <CardHeader className="pb-2">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <CardTitle className="text-lg">{property.unitNumber}</CardTitle>
-                              <CardDescription>
-                                {property.projectName} - {property.buildingName || ""}
-                              </CardDescription>
-                            </div>
-                            <Checkbox
-                              checked={selectedProperties.includes(property.id)}
-                              onCheckedChange={() => togglePropertySelection(property.id)}
-                              aria-label={`Select ${property.unitNumber}`}
-                            />
-                          </div>
-                        </CardHeader>
-                        <CardContent className="pb-2">
-                          <div className="grid grid-cols-2 gap-2 text-sm">
-                            <div>
-                              <p className="text-muted-foreground">Phase:</p>
-                              <p>{property.phase || "Phase 1"}</p>
-                            </div>
-                            <div>
-                              <p className="text-muted-foreground">Floor:</p>
-                              <p>{property.floorNumber}</p>
-                            </div>
-                            <div>
-                              <p className="text-muted-foreground">Type:</p>
-                              <p>{property.unitType}</p>
-                            </div>
-                            <div>
-                              <p className="text-muted-foreground">Beds:</p>
-                              <p>{property.bedrooms}</p>
-                            </div>
-                            <div>
-                              <p className="text-muted-foreground">Area:</p>
-                              <p>{property.totalArea || property.area} sqft</p>
-                            </div>
-                            <div>
-                              <p className="text-muted-foreground">Price/sqft:</p>
-                              <p>{property.totalPricePerSqft ? `AED ${property.totalPricePerSqft}/sqft` : "-"}</p>
-                            </div>
-                            <div className="col-span-2">
-                              <p className="text-muted-foreground">Price:</p>
-                              <p className="font-medium">AED {property.price?.toLocaleString()}</p>
-                            </div>
-                          </div>
-                        </CardContent>
-                        <CardFooter className="flex justify-between pt-2">
-                          <Badge className={getStatusColor(property.status)}>{property.status}</Badge>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              {property.floorPlan && (
-                                <DropdownMenuItem onClick={() => viewFloorPlan(property.floorPlan)}>
-                                  <Eye className="mr-2 h-4 w-4" />
-                                  View Floor Plan
-                                </DropdownMenuItem>
-                              )}
-                              <DropdownMenuItem
-                                onClick={() => router.push(`/dashboard/properties/edit/${property.id}`)}
-                              >
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem>
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleStatusChange(property, "Available")}
-                                disabled={property.status === "Available"}
-                              >
-                                Mark as Available
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleStatusChange(property, "Reserved")}
-                                disabled={property.status === "Reserved"}
-                              >
-                                Mark as Reserved
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleStatusChange(property, "Sold")}
-                                disabled={property.status === "Sold"}
-                              >
-                                Mark as Sold
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleStatusChange(property, "Under Offer")}
-                                disabled={property.status === "Under Offer"}
-                              >
-                                Mark as Under Offer
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </CardFooter>
-                      </Card>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
-
-      {/* Floor Plan Dialog */}
-      <Dialog open={isFloorPlanDialogOpen} onOpenChange={setIsFloorPlanDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Floor Plan</DialogTitle>
-          </DialogHeader>
-          <div className="flex justify-center">
-            {selectedFloorPlan && (
-              <img
-                src={selectedFloorPlan || "/placeholder.svg"}
-                alt="Floor Plan"
-                className="max-w-full h-auto rounded-md"
-              />
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Export Dialog */}
-      <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Export Properties</DialogTitle>
-            <DialogDescription>Select the fields you want to include in the export.</DialogDescription>
-          </DialogHeader>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4">
-            {[
-              { label: "Unit Number", value: "unitNumber" },
-              { label: "Project Name", value: "projectName" },
-              { label: "Developer Name", value: "developerName" },
-              { label: "Building Name", value: "buildingName" },
-              { label: "Phase", value: "phase" },
-              { label: "Floor Number", value: "floorNumber" },
-              { label: "Unit Type", value: "unitType" },
-              { label: "Bedrooms", value: "bedrooms" },
-              { label: "Bathrooms", value: "bathrooms" },
-              { label: "Internal Area", value: "internalArea" },
-              { label: "External Area", value: "externalArea" },
-              { label: "Total Area", value: "totalArea" },
-              { label: "Price", value: "price" },
-              { label: "Status", value: "status" },
-            ].map((field) => (
-              <div key={field.value} className="flex items-center space-x-2">
-                <Checkbox
-                  id={field.value}
-                  checked={selectedExportFields.includes(field.value)}
-                  onCheckedChange={(checked) => {
-                    if (checked) {
-                      setSelectedExportFields([...selectedExportFields, field.value])
-                    } else {
-                      setSelectedExportFields(selectedExportFields.filter((value) => value !== field.value))
-                    }
-                  }}
-                />
-                <Label htmlFor={field.value}>{field.label}</Label>
-              </div>
-            ))}
-          </div>
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button variant="outline" onClick={() => setIsExportDialogOpen(false)} className="w-full sm:w-auto">
-              Cancel
-            </Button>
-            <Button onClick={() => handleExport("csv")} className="w-full sm:w-auto">
-              Export as CSV
-            </Button>
-            <Button onClick={() => handleExport("excel")} className="w-full sm:w-auto">
-              Export as Excel
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Client Information Dialog */}
-      <Dialog
-        open={isClientInfoDialogOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            setPropertyToChangeStatus(null)
-          }
-          setIsClientInfoDialogOpen(open)
-        }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Client Information Required</DialogTitle>
-            <DialogDescription>
-              {propertyToChangeStatus?.newStatus === "Sold"
-                ? "Please provide client and agency information to mark this property as Sold."
-                : propertyToChangeStatus?.newStatus === "Reserved"
-                  ? "Please provide client and agency information to mark this property as Reserved."
-                  : "Please provide client and agency information to mark this property as Under Offer."}
-            </DialogDescription>
-          </DialogHeader>
-
-          {clientInfoError && (
-            <Alert variant="destructive" className="mt-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription>{clientInfoError}</AlertDescription>
-            </Alert>
-          )}
-
-          <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="agencyName" className="font-medium">
-                Agency Name <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="agencyName"
-                value={clientInfo.agencyName}
-                onChange={(e) => setClientInfo({ ...clientInfo, agencyName: e.target.value })}
-                placeholder="Enter agency name"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="agentName" className="font-medium">
-                Agent Name <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="agentName"
-                value={clientInfo.agentName}
-                onChange={(e) => setClientInfo({ ...clientInfo, agentName: e.target.value })}
-                placeholder="Enter agent name"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="clientName" className="font-medium">
-                Client Name <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="clientName"
-                value={clientInfo.clientName}
-                onChange={(e) => setClientInfo({ ...clientInfo, clientName: e.target.value })}
-                placeholder="Enter client name"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="clientEmail">Client Email</Label>
-              <Input
-                id="clientEmail"
-                type="email"
-                value={clientInfo.clientEmail}
-                onChange={(e) => setClientInfo({ ...clientInfo, clientEmail: e.target.value })}
-                placeholder="Enter client email (optional)"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="clientPhone">Client Phone</Label>
-              <Input
-                id="clientPhone"
-                value={clientInfo.clientPhone}
-                onChange={(e) => setClientInfo({ ...clientInfo, clientPhone: e.target.value })}
-                placeholder="Enter client phone (optional)"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsClientInfoDialogOpen(false)
-                setPropertyToChangeStatus(null)
-                setClientInfoError("")
-              }}
-            >
-              Cancel
-            </Button>
-            <Button onClick={applyStatusChangeWithClientInfo}>Confirm</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  )
+       <TabsContent value={activeTab} className="mt-0">
+         {isLoading ? (
+           <Card>
+             <CardContent className="p-6">
+               <div className="flex justify-center items-center h-40">
+                 <p>Loading inventory...</p>
+               </div>
+             </CardContent>
+           </Card>
+         ) : (
+           <div>
+             {/* Bulk actions */}
+             {selectedProperties.length > 0 && (
+               <div className="bg-muted p-4 rounded-md flex flex-col sm:flex-row justify-between items-center gap-2 mb-4">
+                 <span className="font-medium">{selectedProperties.length} properties selected</span>
+                 <div className="flex gap-2">
+                   <DropdownMenu>
+                     <DropdownMenuTrigger asChild>
+                       <Button size="sm">Bulk Actions</Button>
+                     </DropdownMenuTrigger>
+                     <DropdownMenuContent align="end">
+                       <DropdownMenuItem
+                         onClick={() => bulkChangeStatus("Available")}
+                         disabled={selectedProperties.every((id) => {
+                           const property = properties.find((p) => p.id === id)
+                           return property?.status === "Available"
+                         })}
+                       >
+                         Mark as Available
+                       </DropdownMenuItem>
+                       <DropdownMenuItem
+                         onClick={() => bulkChangeStatus("Reserved")}
+                         disabled={selectedProperties.every((id) => {
+                           const property = properties.find((p) => p.id === id)
+                           return property?.status === "Reserved"
+                         })}
+                       >
+                         Mark as Reserved
+                       </DropdownMenuItem>
+                       <DropdownMenuItem
+                         onClick={() => bulkChangeStatus("Sold")}
+                         disabled={selectedProperties.every((id) => {
+                           const property = properties.find((p) => p.id === id)
+                           return property?.status === "Sold"
+                         })}
+                       >
+                         Mark as Sold
+                       </DropdownMenuItem>
+                       <DropdownMenuItem
+                         onClick={() => bulkChangeStatus("Under Offer")}
+                         disabled={selectedProperties.every((id) => {
+                           const property = properties.find((p) => p.id === id)
+                           return property?.status === "Under Offer"
+                         })}
+                       >
+                         Mark as Under Offer
+                       </DropdownMenuItem>
+                     </DropdownMenuContent>
+                   </DropdownMenu>
+                   <Button variant="outline" size="sm" onClick={openExportDialog}>
+                     <Download className="h-4 w-4 mr-1" />
+                     Export
+                   </Button>
+                   <Button variant="outline" size="sm" onClick={() => setSelectedProperties([])}>
+                     Clear Selection
+                   </Button>
+                 </div>
+               </div>
+             )}
+             {viewMode === "list" ? (
+               <div className="rounded-md border overflow-x-auto">
+                 <Table>
+                   <TableHeader>
+                     <TableRow>
+                       <TableHead className="w-[50px]">
+                         <Checkbox
+                           checked={
+                             filteredProperties.length > 0 && selectedProperties.length === filteredProperties.length
+                           }
+                           onCheckedChange={toggleSelectAll}
+                           aria-label="Select all"
+                         />
+                       </TableHead>
+                       <TableHead>Unit</TableHead>
+                       <TableHead>Project</TableHead>
+                       <TableHead>Phase</TableHead>
+                       <TableHead>Building</TableHead>
+                       <TableHead>Floor</TableHead>
+                       <TableHead>Type</TableHead>
+                       <TableHead>Beds</TableHead>
+                       <TableHead>Area (sqft)</TableHead>
+                       <TableHead>Price/sqft</TableHead>
+                       <TableHead>Price</TableHead>
+                       <TableHead>Status</TableHead>
+                       <TableHead className="text-right">Actions</TableHead>
+                     </TableRow>
+                   </TableHeader>
+                   <TableBody>
+                     {filteredProperties.length === 0 ? (
+                       <TableRow>
+                         <TableCell colSpan={13} className="text-center py-4">
+                           No properties found
+                         </TableCell>
+                       </TableRow>
+                     ) : (
+                       filteredProperties.map((property) => (
+                         <TableRow key={property.id} className={getRowBackgroundColor(property.status)}>
+                           <TableCell>
+                             <Checkbox
+                               checked={selectedProperties.includes(property.id)}
+                               onCheckedChange={() => togglePropertySelection(property.id)}
+                               aria-label={`Select ${property.unitNumber}`}
+                             />
+                           </TableCell>
+                           <TableCell className="font-medium">{property.unitNumber}</TableCell>
+                           <TableCell>{property.projectName}</TableCell>
+                           <TableCell>{property.phase || "Phase 1"}</TableCell>
+                           <TableCell>{property.buildingName}</TableCell>
+                           <TableCell>{property.floorNumber}</TableCell>
+                           <TableCell>{property.unitType}</TableCell>
+                           <TableCell>{property.bedrooms}</TableCell>
+                           <TableCell>{property.totalArea || property.area} sqft</TableCell>
+                           <TableCell>
+                             {property.totalPricePerSqft
+                               ? `AED ${property.totalPricePerSqft}/sqft`
+                               : "-"}
+                           </TableCell>
+                           <TableCell>AED {property.price?.toLocaleString()}</TableCell>
+                           <TableCell>
+                             <Badge className={getStatusColor(property.status)}>{property.status}</Badge>
+                           </TableCell>
+                           <TableCell className="text-right">
+                             <DropdownMenu>
+                               <DropdownMenuTrigger asChild>
+                                 <Button variant="ghost" size="icon">
+                                   <MoreHorizontal className="h-4 w-4" />
+                                   <span className="sr-only">Open menu</span>
+                                 </Button>
+                               </DropdownMenuTrigger>
+                               <DropdownMenuContent align="end">
+                                 {property.floorPlan && (
+                                   <DropdownMenuItem onClick={() => viewFloorPlan(property.floorPlan)}>
+                                     <Eye className="mr-2 h-4 w-4" />
+                                     View Floor Plan
+                                   </DropdownMenuItem>
+                                 )}
+                                 <DropdownMenuItem
+                                   onClick={() => router.push(`/dashboard/properties/edit/${property.id}`)}
+                                 >
+                                   <Edit className="mr-2 h-4 w-4" />
+                                   Edit
+                                 </DropdownMenuItem>
+                                 <DropdownMenuItem>
+                                   <Trash2 className="mr-2 h-4 w-4" />
+                                   Delete
+                                 </DropdownMenuItem>
+                                 <DropdownMenuItem
+                                   onClick={() => handleStatusChange(property, "Available")}
+                                   disabled={property.status === "Available"}
+                                 >
+                                   Mark as Available
+                                 </DropdownMenuItem>
+                                 <DropdownMenuItem
+                                   onClick={() => handleStatusChange(property, "Reserved")}
+                                   disabled={property.status === "Reserved"}
+                                 >
+                                   Mark as Reserved
+                                 </DropdownMenuItem>
+                                 <DropdownMenuItem
+                                   onClick={() => handleStatusChange(property, "Sold")}
+                                   disabled={property.status === "Sold"}
+                                 >
+                                   Mark as Sold
+                                 </DropdownMenuItem>
+                                 <DropdownMenuItem
+                                   onClick={() => handleStatusChange(property, "Under Offer")}
+                                   disabled={property.status === "Under Offer"}
+                                 >
+                                   Mark as Under Offer
+                                 </DropdownMenuItem>
+                                 <DropdownMenuItem
+                                   onClick={() => {
+                                     setSelectedPropertyForReservation(property)
+                                     setIsReservationDialogOpen(true)
+                                   }}
+                                   disabled={property.status !== "Reserved"}
+                                 >
+                                   Generate Reservation Deed
+                                 </DropdownMenuItem>
+                               </DropdownMenuContent>
+                             </DropdownMenu>
+                           </TableCell>
+                         </TableRow>
+                       ))
+                     )}
+                   </TableBody>
+                 </Table>
+               </div>
+             ) : (
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                 {filteredProperties.length === 0 ? (
+                   <div className="col-span-full text-center py-4">No properties found</div>
+                 ) : (
+                   filteredProperties.map((property) => (
+                     <Card key={property.id} className={getRowBackgroundColor(property.status)}>
+                       <CardHeader className="pb-2">
+                         <div className="flex justify-between items-start">
+                           <div>
+                             <CardTitle className="text-lg">{property.unitNumber}</CardTitle>
+                             <CardDescription>
+                               {property.projectName} - {property.buildingName || ""}
+                             </CardDescription>
+                           </div>
+                           <Checkbox
+                             checked={selectedProperties.includes(property.id)}
+                             onCheckedChange={() => togglePropertySelection(property.id)}
+                             aria-label={`Select ${property.unitNumber}`}
+                           />
+                         </div>
+                       </CardHeader>
+                       <CardContent className="pb-2">
+                         <div className="grid grid-cols-2 gap-2 text-sm">
+                           <div>
+                             <p className="text-muted-foreground">Phase:</p>
+                             <p>{property.phase || "Phase 1"}</p>
+                           </div>
+                           <div>
+                             <p className="text-muted-foreground">Floor:</p>
+                             <p>{property.floorNumber}</p>
+                           </div>
+                           <div>
+                             <p className="text-muted-foreground">Type:</p>
+                             <p>{property.unitType}</p>
+                           </div>
+                           <div>
+                             <p className="text-muted-foreground">Beds:</p>
+                             <p>{property.bedrooms}</p>
+                           </div>
+                           <div>
+                             <p className="text-muted-foreground">Area:</p>
+                             <p>{property.totalArea || property.area} sqft</p>
+                           </div>
+                           <div>
+                             <p className="text-muted-foreground">Price/sqft:</p>
+                             <p>{property.totalPricePerSqft ? `AED ${property.totalPricePerSqft}/sqft` : "-"}</p>
+                           </div>
+                           <div className="col-span-2">
+                             <p className="text-muted-foreground">Price:</p>
+                             <p className="font-medium">AED {property.price?.toLocaleString()}</p>
+                           </div>
+                         </div>
+                       </CardContent>
+                       <CardFooter className="flex justify-between pt-2">
+                         <Badge className={getStatusColor2(property.status)}>{property.status}</Badge>
+                         <DropdownMenu>
+                           <DropdownMenuTrigger asChild>
+                             <Button variant="ghost" size="icon">
+                               <MoreHorizontal className="h-4 w-4" />
+                             </Button>
+                           </DropdownMenuTrigger>
+                           <DropdownMenuContent align="end">
+                             {property.floorPlan && (
+                               <DropdownMenuItem onClick={() => viewFloorPlan(property.floorPlan)}>
+                                 <Eye className="mr-2 h-4 w-4" />
+                                 View Floor Plan
+                               </DropdownMenuItem>
+                             )}
+                             <DropdownMenuItem onClick={() => editProperty(property)}>
+                               <Edit className="mr-2 h-4 w-4" />
+                               Edit
+                             </DropdownMenuItem>
+                             <DropdownMenuItem onClick={() => openDeleteDialog(property.id)}>
+                               <Trash2 className="mr-2 h-4 w-4" />
+                               Delete
+                             </DropdownMenuItem>
+                             <DropdownMenuItem
+                               onClick={() => handleStatusChange2(property, "Available")}
+                               disabled={property.status === "Available"}
+                             >
+                               Mark as Available
+                             </DropdownMenuItem>
+                             <DropdownMenuItem
+                               onClick={() => handleStatusChange2(property, "Reserved")}
+                               disabled={property.status === "Reserved"}
+                             >
+                               Mark as Reserved
+                             </DropdownMenuItem>
+                             <DropdownMenuItem
+                               onClick={() => handleStatusChange2(property, "Sold")}
+                               disabled={property.status === "Sold"}
+                             >
+                               Mark as Sold
+                             </DropdownMenuItem>
+                             <DropdownMenuItem
+                               onClick={() => handleStatusChange2(property, "Under Offer")}
+                               disabled={property.status === "Under Offer"}
+                             >
+                               Mark as Under Offer
+                             </DropdownMenuItem>
+                           </DropdownMenuContent>
+                         </DropdownMenu>
+                       </CardFooter>
+                     </Card>
+                   ))
+                 )}
+               </div>
+             )}
+           </div>
+         </TabsContent>
+       </Tabs>
+     </Dialog>
+  </div>
+ )
 }
