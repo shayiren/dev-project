@@ -24,6 +24,7 @@ const getStatusColor = (status: string, type: "bg" | "text") => {
 }
 
 export default function PriceManagementPage() {
+  console.log("Price Management Page Loaded")
   const { toast } = useToast()
   const [properties, setProperties] = useState<any[]>([])
   const [selectedProperties, setSelectedProperties] = useState<string[]>([])
