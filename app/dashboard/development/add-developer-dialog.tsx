@@ -51,16 +51,15 @@ export function AddDeveloperDialog({ open, onOpenChange, onAddDeveloper }: AddDe
       name,
       contactPerson,
       email,
-      phone,
+      phoneNumber: phone,
       address,
       website,
       description,
-      projects: [],
+      logo: "/placeholder.svg?height=100&width=200",
     }
 
     onAddDeveloper(newDeveloper)
     resetForm()
-    onOpenChange(false)
   }
 
   const resetForm = () => {
@@ -79,19 +78,19 @@ export function AddDeveloperDialog({ open, onOpenChange, onAddDeveloper }: AddDe
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Add New Developer</DialogTitle>
-          <DialogDescription>Enter the details for the new real estate developer.</DialogDescription>
+          <DialogDescription>Enter the details for the new developer.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="name" className="text-right">
-              Developer Name <span className="text-red-500">*</span>
+              Developer Name
             </Label>
             <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" />
             {errors.name && <p className="col-span-3 col-start-2 text-sm text-red-500">{errors.name}</p>}
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="contactPerson" className="text-right">
-              Contact Person <span className="text-red-500">*</span>
+              Contact Person
             </Label>
             <Input
               id="contactPerson"
@@ -105,7 +104,7 @@ export function AddDeveloperDialog({ open, onOpenChange, onAddDeveloper }: AddDe
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="email" className="text-right">
-              Email <span className="text-red-500">*</span>
+              Email
             </Label>
             <Input
               id="email"

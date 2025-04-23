@@ -15,7 +15,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 interface DeleteDeveloperDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onDeleteDeveloper: () => void
+  onDeveloperDeleted: () => void
   developer: any | null
   hasProjects: boolean
 }
@@ -23,10 +23,28 @@ interface DeleteDeveloperDialogProps {
 export function DeleteDeveloperDialog({
   open,
   onOpenChange,
-  onDeleteDeveloper,
+  onDeveloperDeleted,
   developer,
   hasProjects,
 }: DeleteDeveloperDialogProps) {
+  const handleDelete = () => {
+    if (!developer) return
+
+    // Get existing developers from localStorage
+    const savedDevelopers = localStorage.getItem("realEstateDeveloperDetails")
+    const developers = savedDevelopers ? JSON.parse(savedDevelopers) : []
+
+    // Remove the developer
+    const updatedDevelopers = developers.filter((dev: any) => dev.id !== developer.id)
+
+    // Save back to localStorage
+    localStorage.setItem("realEstateDeveloperDetails", JSON.stringify(updatedDevelopers))
+
+    // Notify parent component
+    onDeveloperDeleted()
+    onOpenChange(false)
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
@@ -67,7 +85,7 @@ export function DeleteDeveloperDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button variant="destructive" onClick={onDeleteDeveloper}>
+          <Button variant="destructive" onClick={handleDelete}>
             Delete
           </Button>
         </DialogFooter>

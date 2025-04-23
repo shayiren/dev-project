@@ -198,7 +198,10 @@ export function ClientPage({ clients, properties }: Props) {
               </thead>
               <tbody>
                 {table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
+                  <tr
+                    key={row.id}
+                    className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted"
+                  >
                     {row.getVisibleCells().map((cell) => (
                       <td key={cell.id} className="px-4 py-2 [&:not([:first-child])]:border-l">
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -211,8 +214,8 @@ export function ClientPage({ clients, properties }: Props) {
                     <td colSpan={columns.length} className="p-4 text-center">
                       No results.
                     </td>
-                  </tr>\
-                ))}
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
