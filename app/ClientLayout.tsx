@@ -7,7 +7,7 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { ensureDefaultData } from "@/utils/ensure-data"
-import { CurrencyProvider } from "@/components/currency-provider"
+import { CurrencyProvider } from "@/contexts/currency-context"
 
 const inter = Inter({ subsets: ["latin"] })
 
