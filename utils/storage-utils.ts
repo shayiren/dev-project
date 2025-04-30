@@ -5,23 +5,28 @@
 // Check if we're running in a browser environment
 const isBrowser = typeof window !== "undefined"
 
-// Safe localStorage access
-const getLocalStorage = () => {
+// Safe localStorage access - export this function
+export function getLocalStorage() {
   return isBrowser ? window.localStorage : null
 }
 
-// Save data to localStorage with error handling
-export function saveToStorage<T>(key: string, data: T): boolean {
+// Set localStorage item with error handling - export this function
+export function setLocalStorage(key: string, value: any): boolean {
   const localStorage = getLocalStorage()
   if (!localStorage) return false
 
   try {
-    localStorage.setItem(key, JSON.stringify(data))
+    localStorage.setItem(key, JSON.stringify(value))
     return true
   } catch (error) {
-    console.error(`Error saving ${key} to localStorage:`, error)
+    console.error(`Error setting ${key} in localStorage:`, error)
     return false
   }
+}
+
+// Save data to localStorage with error handling
+export function saveToStorage<T>(key: string, data: T): boolean {
+  return setLocalStorage(key, data)
 }
 
 // Load data from localStorage with error handling
