@@ -1,16 +1,16 @@
 /**
- * Utility functions for generating analytics data
+ * Utility functions for generating property analytics data
  */
 
-// Get counts of properties by status
-export function getPropertyStatusCounts(properties: any[]) {
-  const counts = {
+// Function to get property status counts
+export function getPropertyStatusCounts(properties: any[]): Record<string, number> {
+  const counts: Record<string, number> = {
+    Total: properties.length,
     Available: 0,
     Reserved: 0,
     "Under Offer": 0,
     Sold: 0,
     "Developer Hold": 0,
-    Total: properties.length,
   }
 
   properties.forEach((property) => {
@@ -22,8 +22,8 @@ export function getPropertyStatusCounts(properties: any[]) {
   return counts
 }
 
-// Get monthly data for the past 6 months
-export function getMonthlyData(properties: any[]) {
+// Function to get monthly data
+export function getMonthlyData(properties: any[]): any[] {
   const today = new Date()
   const monthlyData = []
 
@@ -59,19 +59,77 @@ export function getMonthlyData(properties: any[]) {
   return monthlyData
 }
 
-// Calculate month-on-month growth
-export function calculateMonthlyGrowth(monthlyData: any[]) {
-  if (monthlyData.length < 2) return { percentage: 0, isPositive: true }
+// Function to calculate monthly growth
+export function calculateMonthlyGrowth(monthlyData: any[]): { percentage: string; isPositive: boolean } {
+  if (monthlyData.length < 2) {
+    return { percentage: "0", isPositive: true }
+  }
 
   const currentMonth = monthlyData[monthlyData.length - 1].total
   const previousMonth = monthlyData[monthlyData.length - 2].total
 
-  if (previousMonth === 0) return { percentage: 100, isPositive: true }
+  if (previousMonth === 0) return { percentage: "100", isPositive: true }
 
   const growthPercentage = ((currentMonth - previousMonth) / previousMonth) * 100
 
   return {
     percentage: Math.abs(growthPercentage).toFixed(1),
     isPositive: growthPercentage >= 0,
+  }
+}
+
+// Adding the missing getPropertyAnalytics function
+export function getPropertyAnalytics(properties: any[]) {
+  // Calculate average price
+  const totalPrice = properties.reduce((sum, property) => sum + (Number.parseFloat(property.price) || 0), 0)
+  const averagePrice = properties.length > 0 ? totalPrice / properties.length : 0
+
+  // Calculate average size
+  const totalSize = properties.reduce((sum, property) => sum + (Number.parseFloat(property.size) || 0), 0)
+  const averageSize = properties.length > 0 ? totalSize / properties.length : 0
+
+  // Calculate price per square meter/foot
+  const pricePerUnit = averageSize > 0 ? averagePrice / averageSize : 0
+
+  // Get property types distribution
+  const propertyTypes: Record<string, number> = {}
+  properties.forEach((property) => {
+    const type = property.type || "Unknown"
+    propertyTypes[type] = (propertyTypes[type] || 0) + 1
+  })
+
+  // Get bedroom distribution
+  const bedroomCounts: Record<string, number> = {}
+  properties.forEach((property) => {
+    const bedrooms = property.bedrooms?.toString() || "Unknown"
+    bedroomCounts[bedrooms] = (bedroomCounts[bedrooms] || 0) + 1
+  })
+
+  // Get price ranges
+  const priceRanges = {
+    "Under 100k": 0,
+    "100k-250k": 0,
+    "250k-500k": 0,
+    "500k-1M": 0,
+    "Over 1M": 0,
+  }
+
+  properties.forEach((property) => {
+    const price = Number.parseFloat(property.price) || 0
+    if (price < 100000) priceRanges["Under 100k"]++
+    else if (price < 250000) priceRanges["100k-250k"]++
+    else if (price < 500000) priceRanges["250k-500k"]++
+    else if (price < 1000000) priceRanges["500k-1M"]++
+    else priceRanges["Over 1M"]++
+  })
+
+  return {
+    totalProperties: properties.length,
+    averagePrice,
+    averageSize,
+    pricePerUnit,
+    propertyTypes,
+    bedroomCounts,
+    priceRanges,
   }
 }
