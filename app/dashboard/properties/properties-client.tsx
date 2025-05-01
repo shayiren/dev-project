@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/components/ui/use-toast"
+import { ClientDetailsDialog, type ClientDetails } from "@/components/client-details-dialog"
 
 // Sample property data
 const sampleProperties = [
@@ -40,6 +41,7 @@ const sampleProperties = [
     price: 450000,
     status: "Available",
     location: "Miami Beach, FL",
+    clientDetails: null,
   },
   {
     id: "prop2",
@@ -59,6 +61,7 @@ const sampleProperties = [
     price: 2500000,
     status: "Available",
     location: "Beverly Hills, CA",
+    clientDetails: null,
   },
   {
     id: "prop3",
@@ -78,6 +81,12 @@ const sampleProperties = [
     price: 350000,
     status: "Reserved",
     location: "New York, NY",
+    clientDetails: {
+      clientName: "John Smith",
+      clientEmail: "john@example.com",
+      agencyName: "City Realty",
+      agentName: "Mike Johnson",
+    },
   },
   {
     id: "prop4",
@@ -97,6 +106,7 @@ const sampleProperties = [
     price: 750000,
     status: "Available",
     location: "Seattle, WA",
+    clientDetails: null,
   },
   {
     id: "prop5",
@@ -116,8 +126,17 @@ const sampleProperties = [
     price: 3500000,
     status: "Under Offer",
     location: "Chicago, IL",
+    clientDetails: {
+      clientName: "Sarah Williams",
+      clientEmail: "sarah@example.com",
+      agencyName: "Luxury Properties",
+      agentName: "David Roberts",
+    },
   },
 ]
+
+// Status that require client details
+const statusesRequiringClientDetails = ["Reserved", "Under Offer", "Sold"]
 
 export default function PropertiesClient() {
   const router = useRouter()
@@ -128,8 +147,15 @@ export default function PropertiesClient() {
   const [selectedProperties, setSelectedProperties] = useState<string[]>([])
   const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false)
   const [selectedStatus, setSelectedStatus] = useState<string>("Available")
-  const [editingProperty, setEditingProperty] = useState<any>(null)
   const { toast } = useToast()
+
+  // Client details dialog state
+  const [isClientDialogOpen, setIsClientDialogOpen] = useState(false)
+  const [statusChangeAction, setStatusChangeAction] = useState<{
+    type: "single" | "bulk"
+    id?: string
+    status: string
+  } | null>(null)
 
   useEffect(() => {
     // Load properties on component mount
@@ -225,12 +251,32 @@ export default function PropertiesClient() {
     }
   }
 
+  // Initiate bulk status change
+  const initiateBulkStatusChange = () => {
+    // If selected status requires client details, open client dialog
+    if (statusesRequiringClientDetails.includes(selectedStatus)) {
+      setStatusChangeAction({
+        type: "bulk",
+        status: selectedStatus,
+      })
+      setIsClientDialogOpen(true)
+    } else {
+      // Otherwise, proceed with status change directly
+      handleBulkStatusChange()
+    }
+  }
+
   // Handle bulk status change
-  const handleBulkStatusChange = () => {
+  const handleBulkStatusChange = (clientDetails?: ClientDetails) => {
     try {
       const updatedProperties = properties.map((property) => {
         if (selectedProperties.includes(property.id)) {
-          return { ...property, status: selectedStatus }
+          return {
+            ...property,
+            status: selectedStatus,
+            // Add client details if provided
+            ...(clientDetails ? { clientDetails } : {}),
+          }
         }
         return property
       })
@@ -259,12 +305,33 @@ export default function PropertiesClient() {
     }
   }
 
+  // Initiate quick status change
+  const initiateQuickStatusChange = (id: string, newStatus: string) => {
+    // If status requires client details, open client dialog
+    if (statusesRequiringClientDetails.includes(newStatus)) {
+      setStatusChangeAction({
+        type: "single",
+        id,
+        status: newStatus,
+      })
+      setIsClientDialogOpen(true)
+    } else {
+      // Otherwise, proceed with status change directly
+      handleQuickStatusChange(id, newStatus)
+    }
+  }
+
   // Quick edit property status
-  const handleQuickStatusChange = (id: string, newStatus: string) => {
+  const handleQuickStatusChange = (id: string, newStatus: string, clientDetails?: ClientDetails) => {
     try {
       const updatedProperties = properties.map((property) => {
         if (property.id === id) {
-          return { ...property, status: newStatus }
+          return {
+            ...property,
+            status: newStatus,
+            // Add client details if provided
+            ...(clientDetails ? { clientDetails } : {}),
+          }
         }
         return property
       })
@@ -290,6 +357,29 @@ export default function PropertiesClient() {
     }
   }
 
+  // Handle client details submission
+  const handleClientDetailsSubmit = (details: ClientDetails) => {
+    if (!statusChangeAction) return
+
+    if (statusChangeAction.type === "single" && statusChangeAction.id) {
+      // Apply to single property
+      handleQuickStatusChange(statusChangeAction.id, statusChangeAction.status, details)
+    } else if (statusChangeAction.type === "bulk") {
+      // Apply to multiple properties
+      handleBulkStatusChange(details)
+    }
+
+    // Close dialog and reset action
+    setIsClientDialogOpen(false)
+    setStatusChangeAction(null)
+  }
+
+  // Handle client dialog cancel
+  const handleClientDialogCancel = () => {
+    setIsClientDialogOpen(false)
+    setStatusChangeAction(null)
+  }
+
   // Export to Excel
   const exportToExcel = () => {
     try {
@@ -298,7 +388,21 @@ export default function PropertiesClient() {
         selectedProperties.length > 0 ? properties.filter((p) => selectedProperties.includes(p.id)) : properties
 
       // Create CSV header
-      const headers = ["Unit Number", "Project", "Type", "Beds", "Baths", "Area (sqft)", "Price", "Status", "Location"]
+      const headers = [
+        "Unit Number",
+        "Project",
+        "Type",
+        "Beds",
+        "Baths",
+        "Area (sqft)",
+        "Price",
+        "Status",
+        "Location",
+        "Client Name",
+        "Client Email",
+        "Agency Name",
+        "Agent Name",
+      ]
 
       // Create CSV rows
       const rows = propertiesToExport.map((p) => [
@@ -311,6 +415,10 @@ export default function PropertiesClient() {
         p.price,
         p.status,
         p.location,
+        p.clientDetails?.clientName || "",
+        p.clientDetails?.clientEmail || "",
+        p.clientDetails?.agencyName || "",
+        p.clientDetails?.agentName || "",
       ])
 
       // Combine header and rows
@@ -424,6 +532,7 @@ export default function PropertiesClient() {
                     <TableHead>Area (sqft)</TableHead>
                     <TableHead>Price</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Client/Agent</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -460,6 +569,15 @@ export default function PropertiesClient() {
                         </span>
                       </TableCell>
                       <TableCell>
+                        {property.clientDetails ? (
+                          <span className="text-xs">
+                            {property.clientDetails.clientName} / {property.clientDetails.agentName}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">None</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
                         <div className="flex space-x-2">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -481,19 +599,19 @@ export default function PropertiesClient() {
                               <DropdownMenuItem>
                                 <span className="font-medium">Change Status</span>
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleQuickStatusChange(property.id, "Available")}>
+                              <DropdownMenuItem onClick={() => initiateQuickStatusChange(property.id, "Available")}>
                                 <Check className="mr-2 h-4 w-4 text-green-600" />
                                 Available
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleQuickStatusChange(property.id, "Reserved")}>
+                              <DropdownMenuItem onClick={() => initiateQuickStatusChange(property.id, "Reserved")}>
                                 <Check className="mr-2 h-4 w-4 text-blue-600" />
                                 Reserved
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleQuickStatusChange(property.id, "Under Offer")}>
+                              <DropdownMenuItem onClick={() => initiateQuickStatusChange(property.id, "Under Offer")}>
                                 <Check className="mr-2 h-4 w-4 text-yellow-600" />
                                 Under Offer
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleQuickStatusChange(property.id, "Sold")}>
+                              <DropdownMenuItem onClick={() => initiateQuickStatusChange(property.id, "Sold")}>
                                 <Check className="mr-2 h-4 w-4 text-red-600" />
                                 Sold
                               </DropdownMenuItem>
@@ -536,10 +654,21 @@ export default function PropertiesClient() {
             <Button variant="outline" onClick={() => setIsStatusDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleBulkStatusChange}>Update Status</Button>
+            <Button onClick={initiateBulkStatusChange}>Update Status</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Client Details Dialog */}
+      {statusChangeAction && (
+        <ClientDetailsDialog
+          open={isClientDialogOpen}
+          onOpenChange={setIsClientDialogOpen}
+          onSubmit={handleClientDetailsSubmit}
+          onCancel={handleClientDialogCancel}
+          status={statusChangeAction.status}
+        />
+      )}
     </div>
   )
 }
