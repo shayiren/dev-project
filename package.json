@@ -60,9 +60,9 @@
     "zod": "^3.24.1",
     "jspdf": "latest",
     "uuid": "latest",
-    "jspdf-autotable": "latest",
     "@tanstack/react-table": "latest",
-    "@radix-ui/react-icons": "latest"
+    "@radix-ui/react-icons": "latest",
+    "jspdf-autotable": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

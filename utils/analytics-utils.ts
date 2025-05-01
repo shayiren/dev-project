@@ -2,80 +2,65 @@
  * Utility functions for analytics
  */
 
-// Function to get property status counts
-export function getPropertyStatusCounts(properties: any[]): Record<string, number> {
-  const counts: Record<string, number> = {
-    Total: properties.length,
+// Get counts of properties by status
+export function getPropertyStatusCounts(properties: any[]) {
+  const statusCounts = {
     Available: 0,
     Reserved: 0,
-    "Under Offer": 0,
     Sold: 0,
-    "Developer Hold": 0,
+    "Under Offer": 0,
   }
 
   properties.forEach((property) => {
-    if (counts.hasOwnProperty(property.status)) {
-      counts[property.status as keyof typeof counts]++
+    if (property.status && statusCounts.hasOwnProperty(property.status)) {
+      statusCounts[property.status as keyof typeof statusCounts]++
     }
   })
 
-  return counts
+  return statusCounts
 }
 
 // Function to get monthly data
-export function getMonthlyData(properties: any[]): any[] {
-  const today = new Date()
-  const monthlyData = []
+export function getMonthlyData(properties: any[]) {
+  const now = new Date()
+  const monthsData = []
 
-  // Generate data for the past 6 months
+  // Generate data for the last 6 months
   for (let i = 5; i >= 0; i--) {
-    const month = new Date(today.getFullYear(), today.getMonth() - i, 1)
+    const month = new Date(now.getFullYear(), now.getMonth() - i, 1)
     const monthName = month.toLocaleString("default", { month: "short" })
-    const year = month.getFullYear()
 
-    // Count properties sold in this month
-    const soldCount = properties.filter((property) => {
-      if (!property.soldDate) return false
-      const soldDate = new Date(property.soldDate)
-      return soldDate.getMonth() === month.getMonth() && soldDate.getFullYear() === month.getFullYear()
-    }).length
-
-    // Count properties reserved in this month
-    const reservedCount = properties.filter((property) => {
-      if (property.status !== "Reserved") return false
-      // If we had reservation date, we would use it here
-      // For now, we'll use a random number for demonstration
-      return Math.floor(Math.random() * 10) + 1
-    }).length
-
-    monthlyData.push({
-      month: `${monthName} ${year}`,
-      sold: soldCount,
-      reserved: reservedCount,
-      total: soldCount + reservedCount,
+    monthsData.push({
+      name: monthName,
+      total: 0,
     })
   }
 
-  return monthlyData
+  // Count properties sold in each month
+  properties.forEach((property) => {
+    if (property.status === "Sold" && property.soldDate) {
+      const soldDate = new Date(property.soldDate)
+      const monthIndex = 5 - (now.getMonth() - soldDate.getMonth() + (now.getFullYear() - soldDate.getFullYear()) * 12)
+
+      if (monthIndex >= 0 && monthIndex < 6) {
+        monthsData[monthIndex].total += 1
+      }
+    }
+  })
+
+  return monthsData
 }
 
 // Function to calculate monthly growth
-export function calculateMonthlyGrowth(monthlyData: any[]): { percentage: string; isPositive: boolean } {
-  if (monthlyData.length < 2) {
-    return { percentage: "0", isPositive: true }
-  }
+export function calculateMonthlyGrowth(monthlyData: any[]) {
+  if (monthlyData.length < 2) return 0
 
   const currentMonth = monthlyData[monthlyData.length - 1].total
   const previousMonth = monthlyData[monthlyData.length - 2].total
 
-  if (previousMonth === 0) return { percentage: "100", isPositive: true }
+  if (previousMonth === 0) return currentMonth > 0 ? 100 : 0
 
-  const growthPercentage = ((currentMonth - previousMonth) / previousMonth) * 100
-
-  return {
-    percentage: Math.abs(growthPercentage).toFixed(1),
-    isPositive: growthPercentage >= 0,
-  }
+  return ((currentMonth - previousMonth) / previousMonth) * 100
 }
 
 // Get property analytics

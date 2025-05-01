@@ -6,15 +6,20 @@
 const isBrowser = typeof window !== "undefined"
 
 // Safe localStorage access - export this function
-export function getLocalStorage() {
-  return isBrowser ? window.localStorage : null
+export function getLocalStorage(key: string) {
+  if (typeof window === "undefined") return null
+  try {
+    const item = localStorage.getItem(key)
+    return item ? JSON.parse(item) : null
+  } catch (error) {
+    console.error(`Error getting ${key} from localStorage:`, error)
+    return null
+  }
 }
 
 // Set localStorage item with error handling - export this function
-export function setLocalStorage(key: string, value: any): boolean {
-  const localStorage = getLocalStorage()
-  if (!localStorage) return false
-
+export function setLocalStorage(key: string, value: any) {
+  if (typeof window === "undefined") return false
   try {
     localStorage.setItem(key, JSON.stringify(value))
     return true
@@ -31,7 +36,7 @@ export function saveToStorage<T>(key: string, data: T): boolean {
 
 // Load data from localStorage with error handling
 export function loadFromStorage<T>(key: string, defaultValue: T): T {
-  const localStorage = getLocalStorage()
+  const localStorage = getLocalStorage(key)
   if (!localStorage) return defaultValue
 
   try {
@@ -47,7 +52,7 @@ export function loadFromStorage<T>(key: string, defaultValue: T): T {
 
 // Add a single property to storage
 export function addProperty(property: any): boolean {
-  const localStorage = getLocalStorage()
+  const localStorage = getLocalStorage("properties")
   if (!localStorage) return false
 
   try {
@@ -125,13 +130,11 @@ export function getAllProperties(): any[] {
 }
 
 // Delete a property from storage
-export function deleteProperty(id: string): boolean {
-  if (!isBrowser) return false
-
+export function deleteProperty(id: string) {
   try {
-    const properties = loadFromStorage<any[]>("properties", [])
-    const updatedProperties = properties.filter((property) => property.id !== id)
-    return saveToStorage("properties", updatedProperties)
+    const properties = getLocalStorage("properties") || []
+    const updatedProperties = properties.filter((property: any) => property.id !== id)
+    return setLocalStorage("properties", updatedProperties)
   } catch (error) {
     console.error("Error deleting property:", error)
     return false
