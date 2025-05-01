@@ -85,7 +85,11 @@ export default function ImportInventoryPage() {
           internalArea: 1800,
           externalArea: 300,
           type: "Penthouse",
-          status: "Available",
+          status: "Reserved",
+          clientName: "Michael Johnson",
+          clientEmail: "michael.j@example.com",
+          agentName: "Sarah Williams",
+          agencyName: "Elite Properties",
         },
         {
           id: "PROP103",
@@ -100,7 +104,10 @@ export default function ImportInventoryPage() {
           internalArea: 1900,
           externalArea: 300,
           type: "Villa",
-          status: "Developer Hold",
+          status: "Under Offer",
+          clientName: "Robert Chen",
+          clientEmail: "robert.c@example.com",
+          agentName: "David Miller",
         },
       ]
 
@@ -140,6 +147,16 @@ export default function ImportInventoryPage() {
       if (!row.location) errors.push(`Row ${rowNum}: Missing location`)
       if (!row.price) errors.push(`Row ${rowNum}: Missing price`)
       if (!row.area) errors.push(`Row ${rowNum}: Missing area`)
+    })
+
+    // Check for required client details based on status
+    data.forEach((row, index) => {
+      const rowNum = index + 1
+      if (["Reserved", "Under Offer", "Sold"].includes(row.status)) {
+        if (!row.clientName) errors.push(`Row ${rowNum}: Missing client name for ${row.status} property`)
+        if (!row.clientEmail) errors.push(`Row ${rowNum}: Missing client email for ${row.status} property`)
+        if (!row.agentName) errors.push(`Row ${rowNum}: Missing agent name for ${row.status} property`)
+      }
     })
 
     return errors
@@ -196,6 +213,15 @@ export default function ImportInventoryPage() {
           floorPlan: item.floorPlan || "/placeholder.svg?height=400&width=600",
           imageUrl: item.imageUrl || "/placeholder.svg?height=400&width=600",
           createdAt: new Date().toISOString().split("T")[0],
+          // Add client details if status requires it
+          ...(["Reserved", "Under Offer", "Sold"].includes(item.status) && {
+            clientDetails: {
+              clientName: item.clientName || "",
+              clientEmail: item.clientEmail || "",
+              agentName: item.agentName || "",
+              agencyName: item.agencyName || "",
+            },
+          }),
         }
       })
 
@@ -316,6 +342,7 @@ export default function ImportInventoryPage() {
                           <TableHead>Area</TableHead>
                           <TableHead>Bedrooms</TableHead>
                           <TableHead>Status</TableHead>
+                          <TableHead>Client</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -329,6 +356,13 @@ export default function ImportInventoryPage() {
                             <TableCell>{item.area} sqft</TableCell>
                             <TableCell>{item.bedrooms}</TableCell>
                             <TableCell>{item.status || "Available"}</TableCell>
+                            <TableCell>
+                              {["Reserved", "Under Offer", "Sold"].includes(item.status)
+                                ? item.clientName
+                                  ? item.clientName
+                                  : "Missing client"
+                                : "-"}
+                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -377,24 +411,29 @@ export default function ImportInventoryPage() {
                   <li>bedrooms - Number of bedrooms</li>
                   <li>bathrooms - Number of bathrooms</li>
                   <li>type - Unit type (Apartment, Condo, etc.)</li>
-                  <li>status - Unit status (Active, Pending, etc.)</li>
+                  <li>status - Unit status (Available, Reserved, Under Offer, Sold)</li>
                   <li>internalArea - Internal area in sqft</li>
                   <li>externalArea - External area in sqft</li>
                   <li>views - View type</li>
                   <li>floorPlate - Floor plate</li>
+                  <li>clientName - Client name (required for Reserved, Under Offer, Sold)</li>
+                  <li>clientEmail - Client email (required for Reserved, Under Offer, Sold)</li>
+                  <li>agentName - Agent name (required for Reserved, Under Offer, Sold)</li>
+                  <li>agencyName - Agency name (optional)</li>
                 </ul>
               </div>
             </div>
             <div className="mt-4">
               <h3 className="font-medium mb-2">Sample CSV Format:</h3>
               <pre className="bg-muted p-4 rounded-md overflow-x-auto text-xs">
-                title,projectName,developerName,location,price,area,bedrooms,bathrooms,type,status
+                title,projectName,developerName,location,price,area,bedrooms,bathrooms,type,status,clientName,clientEmail,agentName,agencyName
                 <br />
                 "Luxury Apartment 101","Azure Towers","Coastal Developments Inc.","Miami Beach,
-                FL",750000,1200,2,2,"Apartment","Active"
+                FL",750000,1200,2,2,"Apartment","Available"
                 <br />
                 "Penthouse Suite 501","Sunset Heights","Premium Estates Group","Los Angeles,
-                CA",1250000,2100,3,3.5,"Penthouse","Active"
+                CA",1250000,2100,3,3.5,"Penthouse","Reserved","Michael Johnson","michael.j@example.com","Sarah
+                Williams","Elite Properties"
               </pre>
             </div>
           </CardContent>
