@@ -83,15 +83,21 @@ export function ClientDetailsDialog({
     return Object.keys(newErrors).length === 0
   }
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!validateForm()) return
 
     setIsSubmitting(true)
 
     try {
-      // Simulate some processing time
-      await new Promise((resolve) => setTimeout(resolve, 500))
+      // Immediately submit the client details
       onSubmit(clientDetails)
+      // Reset form after submission
+      setClientDetails({
+        clientName: "",
+        clientEmail: "",
+        agencyName: "",
+        agentName: "",
+      })
     } catch (error) {
       console.error("Error submitting client details:", error)
     } finally {

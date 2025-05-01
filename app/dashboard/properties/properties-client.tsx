@@ -321,27 +321,88 @@ export default function PropertiesClient() {
     }
   }
 
-  // Quick edit property status
-  const handleQuickStatusChange = (id: string, newStatus: string, clientDetails?: ClientDetails) => {
-    try {
+  // Handle client details submission
+  const handleClientDetailsSubmit = (details: ClientDetails) => {
+    if (!statusChangeAction) return
+
+    if (statusChangeAction.type === "single" && statusChangeAction.id) {
+      // Apply to single property
       const updatedProperties = properties.map((property) => {
-        if (property.id === id) {
+        if (property.id === statusChangeAction.id) {
           return {
             ...property,
-            status: newStatus,
-            // Add client details if provided
-            ...(clientDetails ? { clientDetails } : {}),
+            status: statusChangeAction.status,
+            clientDetails: details,
           }
         }
         return property
       })
 
+      // Update state and localStorage
       setProperties(updatedProperties)
+      localStorage.setItem("properties", JSON.stringify(updatedProperties))
 
-      // Update localStorage
-      if (typeof window !== "undefined") {
-        localStorage.setItem("properties", JSON.stringify(updatedProperties))
-      }
+      toast({
+        title: "Status updated",
+        description: `Property status changed to ${statusChangeAction.status}`,
+      })
+    } else if (statusChangeAction.type === "bulk") {
+      // Apply to multiple properties
+      const updatedProperties = properties.map((property) => {
+        if (selectedProperties.includes(property.id)) {
+          return {
+            ...property,
+            status: statusChangeAction.status,
+            clientDetails: details,
+          }
+        }
+        return property
+      })
+
+      // Update state and localStorage
+      setProperties(updatedProperties)
+      localStorage.setItem("properties", JSON.stringify(updatedProperties))
+
+      toast({
+        title: "Status updated",
+        description: `Updated ${selectedProperties.length} properties to ${statusChangeAction.status}`,
+      })
+
+      // Clear selections after bulk update
+      setSelectedProperties([])
+      setIsStatusDialogOpen(false)
+    }
+
+    // Close dialog and reset action
+    setIsClientDialogOpen(false)
+    setStatusChangeAction(null)
+  }
+
+  // Quick edit property status (for statuses that don't require client details)
+  const handleQuickStatusChange = (id: string, newStatus: string) => {
+    try {
+      const updatedProperties = properties.map((property) => {
+        if (property.id === id) {
+          // If changing to Available, remove client details
+          if (newStatus === "Available") {
+            return {
+              ...property,
+              status: newStatus,
+              clientDetails: null,
+            }
+          } else {
+            return {
+              ...property,
+              status: newStatus,
+            }
+          }
+        }
+        return property
+      })
+
+      // Update state and localStorage directly
+      setProperties(updatedProperties)
+      localStorage.setItem("properties", JSON.stringify(updatedProperties))
 
       toast({
         title: "Status updated",
@@ -355,23 +416,6 @@ export default function PropertiesClient() {
         variant: "destructive",
       })
     }
-  }
-
-  // Handle client details submission
-  const handleClientDetailsSubmit = (details: ClientDetails) => {
-    if (!statusChangeAction) return
-
-    if (statusChangeAction.type === "single" && statusChangeAction.id) {
-      // Apply to single property
-      handleQuickStatusChange(statusChangeAction.id, statusChangeAction.status, details)
-    } else if (statusChangeAction.type === "bulk") {
-      // Apply to multiple properties
-      handleBulkStatusChange(details)
-    }
-
-    // Close dialog and reset action
-    setIsClientDialogOpen(false)
-    setStatusChangeAction(null)
   }
 
   // Handle client dialog cancel
