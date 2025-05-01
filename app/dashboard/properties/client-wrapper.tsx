@@ -1,7 +1,12 @@
 "use client"
 
+import { Suspense } from "react"
 import PropertiesClient from "./properties-client"
 
 export default function PropertiesClientWrapper() {
-  return <PropertiesClient />
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <PropertiesClient />
+    </Suspense>
+  )
 }
