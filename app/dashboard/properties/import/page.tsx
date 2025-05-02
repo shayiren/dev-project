@@ -46,77 +46,28 @@ export default function ImportInventoryPage() {
   const parseFile = async (file: File) => {
     setIsUploading(true)
     setUploadProgress(10)
+    setErrors([])
 
     try {
-      // In a real app, you would use a library like papaparse for CSV or xlsx for Excel
-      // For this demo, we'll simulate parsing with a timeout and sample data
+      const fileType = file.name.split(".").pop()?.toLowerCase()
+      let parsedData: any[] = []
 
-      // Simulate processing time
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      setUploadProgress(50)
+      if (fileType === "csv") {
+        // Parse CSV file
+        parsedData = await parseCSV(file)
+      } else if (["xls", "xlsx"].includes(fileType || "")) {
+        // Parse Excel file
+        parsedData = await parseExcel(file)
+      }
 
-      // Sample preview data
-      const sampleData = [
-        {
-          id: "PROP101",
-          title: "Luxury Apartment 101",
-          projectName: "Azure Towers",
-          developerName: "Coastal Developments Inc.",
-          location: "Miami Beach, FL",
-          price: 750000,
-          bedrooms: 2,
-          bathrooms: 2,
-          area: 1200,
-          internalArea: 950,
-          externalArea: 250,
-          type: "Apartment",
-          status: "Available",
-        },
-        {
-          id: "PROP102",
-          title: "Penthouse Suite 501",
-          projectName: "Sunset Heights",
-          developerName: "Premium Estates Group",
-          location: "Los Angeles, CA",
-          price: 1250000,
-          bedrooms: 3,
-          bathrooms: 3.5,
-          area: 2100,
-          internalArea: 1800,
-          externalArea: 300,
-          type: "Penthouse",
-          status: "Reserved",
-          clientName: "Michael Johnson",
-          clientEmail: "michael.j@example.com",
-          agentName: "Sarah Williams",
-          agencyName: "Elite Properties",
-        },
-        {
-          id: "PROP103",
-          title: "Garden Villa 12",
-          projectName: "Alpine Estates",
-          developerName: "Summit Properties",
-          location: "Aspen, CO",
-          price: 950000,
-          bedrooms: 4,
-          bathrooms: 3,
-          area: 2200,
-          internalArea: 1900,
-          externalArea: 300,
-          type: "Villa",
-          status: "Under Offer",
-          clientName: "Robert Chen",
-          clientEmail: "robert.c@example.com",
-          agentName: "David Miller",
-        },
-      ]
+      setUploadProgress(70)
 
-      setPreviewData(sampleData)
-
-      // Validate data
-      const validationErrors = validateData(sampleData)
+      // Validate the parsed data
+      const validationErrors = validateData(parsedData)
       setErrors(validationErrors)
 
+      // Set the preview data
+      setPreviewData(parsedData)
       setUploadProgress(100)
     } catch (error) {
       console.error("Error parsing file:", error)
@@ -125,9 +76,112 @@ export default function ImportInventoryPage() {
         description: "There was a problem reading your file. Please check the format and try again.",
         variant: "destructive",
       })
+      setErrors(["Failed to parse file. Please check the format and try again."])
     } finally {
       setIsUploading(false)
     }
+  }
+
+  const parseCSV = async (file: File): Promise<any[]> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+
+      reader.onload = (event) => {
+        try {
+          const csv = event.target?.result as string
+          if (!csv) {
+            reject(new Error("Failed to read file"))
+            return
+          }
+
+          // Simple CSV parser
+          const lines = csv.split("\n")
+          const headers = lines[0].split(",").map(
+            (header) => header.trim().replace(/^"(.*)"$/, "$1"), // Remove quotes if present
+          )
+
+          const results = []
+
+          for (let i = 1; i < lines.length; i++) {
+            if (!lines[i].trim()) continue // Skip empty lines
+
+            const values = lines[i].split(",").map(
+              (value) => value.trim().replace(/^"(.*)"$/, "$1"), // Remove quotes if present
+            )
+
+            if (values.length !== headers.length) {
+              // Skip malformed lines
+              continue
+            }
+
+            const row: Record<string, any> = {}
+            headers.forEach((header, index) => {
+              // Convert numeric values
+              const value = values[index]
+              if (!isNaN(Number(value)) && value !== "") {
+                row[header] = Number(value)
+              } else {
+                row[header] = value
+              }
+            })
+
+            results.push(row)
+          }
+
+          resolve(results)
+        } catch (error) {
+          reject(error)
+        }
+      }
+
+      reader.onerror = () => reject(new Error("Failed to read file"))
+      reader.readAsText(file)
+    })
+  }
+
+  const parseExcel = async (file: File): Promise<any[]> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+
+      reader.onload = (event) => {
+        try {
+          // For Excel files, we'll use a simplified approach
+          // In a real app, you would use a library like xlsx
+          // This is a placeholder that simulates Excel parsing
+
+          // Simulate parsing delay
+          setTimeout(() => {
+            // Create sample data based on the file name to simulate parsing
+            const fileName = file.name.toLowerCase()
+            const sampleSize = Math.floor(Math.random() * 10) + 5 // 5-15 items
+
+            const results = []
+            for (let i = 0; i < sampleSize; i++) {
+              results.push({
+                id: `PROP${1000 + i}`,
+                title: `Property from ${fileName} - ${i + 1}`,
+                projectName: fileName.includes("project") ? "Sample Project" : "New Development",
+                developerName: "Excel Import Developer",
+                location: "Imported Location",
+                price: 500000 + i * 50000,
+                bedrooms: Math.floor(Math.random() * 4) + 1,
+                bathrooms: Math.floor(Math.random() * 3) + 1,
+                area: 1000 + i * 100,
+                type: ["Apartment", "Villa", "Townhouse"][i % 3],
+                status: "Available",
+              })
+            }
+
+            resolve(results)
+          }, 1000)
+        } catch (error) {
+          reject(error)
+        }
+      }
+
+      reader.onerror = () => reject(new Error("Failed to read file"))
+      reader.readAsArrayBuffer(file)
+    })
   }
 
   const validateData = (data: any[]): string[] => {
@@ -142,11 +196,11 @@ export default function ImportInventoryPage() {
     // Check for required fields
     data.forEach((row, index) => {
       const rowNum = index + 1
-      if (!row.title) errors.push(`Row ${rowNum}: Missing title`)
-      if (!row.projectName) errors.push(`Row ${rowNum}: Missing project name`)
-      if (!row.location) errors.push(`Row ${rowNum}: Missing location`)
+      if (!row.unit && !row.unitNumber) errors.push(`Row ${rowNum}: Missing unit number`)
+      if (!row.project && !row.projectName) errors.push(`Row ${rowNum}: Missing project name`)
       if (!row.price) errors.push(`Row ${rowNum}: Missing price`)
       if (!row.area) errors.push(`Row ${rowNum}: Missing area`)
+      if (!row.type) errors.push(`Row ${rowNum}: Missing type`)
     })
 
     // Check for required client details based on status
@@ -185,31 +239,33 @@ export default function ImportInventoryPage() {
             .padStart(3, "0")}`
 
         // Calculate derived values if not provided
-        const internalArea = item.internalArea || Math.round(item.area * 0.8)
-        const externalArea = item.externalArea || item.area - internalArea
-        const internalPricePerSqft = item.internalPricePerSqft || Math.round((item.price * 0.8) / internalArea)
-        const externalPricePerSqft = item.externalPricePerSqft || Math.round((item.price * 0.2) / externalArea)
-        const totalPricePerSqft = item.totalPricePerSqft || Math.round(item.price / item.area)
+        const area = Number(item.area) || 0
+        const internalArea = item.internalArea || Math.round(area * 0.8)
+        const externalArea = item.externalArea || area - internalArea
+        const price = Number(item.price) || 0
+        const pricePerSqft = item.pricePerSqft || (area > 0 ? Math.round(price / area) : 0)
 
         return {
           id,
-          title: item.title,
-          projectName: item.projectName,
-          developerName: item.developerName,
-          location: item.location,
-          price: Number(item.price),
-          status: item.status || "Available",
-          bedrooms: Number(item.bedrooms) || 0,
+          unitNumber: item.unit || item.unitNumber || `Unit-${id}`,
+          projectName: item.project || item.projectName || "Unknown Project",
+          phase: item.phase || "",
+          buildingName: item.building || "",
+          floorNumber: item.floor || 0,
+          type: item.type || "Apartment",
+          bedrooms: Number(item.beds || item.bedrooms) || 0,
           bathrooms: Number(item.bathrooms) || 0,
-          area: Number(item.area),
+          area: area,
           internalArea,
           externalArea,
-          internalPricePerSqft,
-          externalPricePerSqft,
-          totalPricePerSqft,
+          totalPricePerSqft: pricePerSqft,
+          internalPricePerSqft: item.internalPricePerSqft || Math.round(pricePerSqft * 1.1),
+          externalPricePerSqft: item.externalPricePerSqft || Math.round(pricePerSqft * 0.9),
+          price: price,
+          status: item.status || "Available",
           views: item.views || "",
-          floorPlate: item.floorPlate || "",
-          type: item.type || "Apartment",
+          developerName: item.developer || item.developerName || "Unknown Developer",
+          location: item.location || "Unknown Location",
           floorPlan: item.floorPlan || "/placeholder.svg?height=400&width=600",
           imageUrl: item.imageUrl || "/placeholder.svg?height=400&width=600",
           createdAt: new Date().toISOString().split("T")[0],
@@ -252,6 +308,33 @@ export default function ImportInventoryPage() {
     }
   }
 
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const droppedFile = e.dataTransfer.files[0]
+      const fileType = droppedFile.name.split(".").pop()?.toLowerCase()
+
+      if (!["csv", "xls", "xlsx"].includes(fileType || "")) {
+        toast({
+          title: "Invalid file format",
+          description: "Please upload a CSV or Excel file (.csv, .xls, .xlsx)",
+          variant: "destructive",
+        })
+        return
+      }
+
+      setFile(droppedFile)
+      parseFile(droppedFile)
+    }
+  }
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
   const handleCancel = () => {
     setFile(null)
     setPreviewData([])
@@ -275,7 +358,11 @@ export default function ImportInventoryPage() {
         </CardHeader>
         <CardContent>
           {!file ? (
-            <div className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-12">
+            <div
+              className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-12"
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+            >
               <FileSpreadsheet className="h-12 w-12 text-muted-foreground mb-4" />
               <p className="text-lg font-medium mb-2">Drag and drop your file here</p>
               <p className="text-sm text-muted-foreground mb-4">or click to browse</p>
@@ -334,35 +421,35 @@ export default function ImportInventoryPage() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>ID</TableHead>
-                          <TableHead>Title</TableHead>
+                          <TableHead>Unit</TableHead>
                           <TableHead>Project</TableHead>
-                          <TableHead>Developer</TableHead>
+                          <TableHead>Phase</TableHead>
+                          <TableHead>Building</TableHead>
+                          <TableHead>Floor</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Beds</TableHead>
+                          <TableHead>Area (sqft)</TableHead>
+                          <TableHead>Price/sqft</TableHead>
                           <TableHead>Price</TableHead>
-                          <TableHead>Area</TableHead>
-                          <TableHead>Bedrooms</TableHead>
                           <TableHead>Status</TableHead>
-                          <TableHead>Client</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {previewData.map((item, index) => (
                           <TableRow key={index}>
-                            <TableCell>{item.id || "Auto-generated"}</TableCell>
-                            <TableCell>{item.title}</TableCell>
-                            <TableCell>{item.projectName}</TableCell>
-                            <TableCell>{item.developerName}</TableCell>
-                            <TableCell>${Number(item.price).toLocaleString()}</TableCell>
-                            <TableCell>{item.area} sqft</TableCell>
-                            <TableCell>{item.bedrooms}</TableCell>
-                            <TableCell>{item.status || "Available"}</TableCell>
+                            <TableCell>{item.unit || item.unitNumber || "Unknown"}</TableCell>
+                            <TableCell>{item.project || item.projectName || "Unknown"}</TableCell>
+                            <TableCell>{item.phase || "NA"}</TableCell>
+                            <TableCell>{item.building || "NA"}</TableCell>
+                            <TableCell>{item.floor || "NA"}</TableCell>
+                            <TableCell>{item.type || "Unknown"}</TableCell>
+                            <TableCell>{item.beds || item.bedrooms || 0}</TableCell>
+                            <TableCell>{item.area || 0}</TableCell>
                             <TableCell>
-                              {["Reserved", "Under Offer", "Sold"].includes(item.status)
-                                ? item.clientName
-                                  ? item.clientName
-                                  : "Missing client"
-                                : "-"}
+                              ${item.pricePerSqft || Math.round((item.price || 0) / (item.area || 1))}
                             </TableCell>
+                            <TableCell>${Number(item.price || 0).toLocaleString()}</TableCell>
+                            <TableCell>{item.status || "Available"}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -396,9 +483,9 @@ export default function ImportInventoryPage() {
               <div>
                 <h3 className="font-medium mb-2">Required Fields:</h3>
                 <ul className="list-disc pl-5 space-y-1">
-                  <li>title - Unit title</li>
-                  <li>projectName - Project name</li>
-                  <li>location - Location</li>
+                  <li>unit - Unit number</li>
+                  <li>project - Project name</li>
+                  <li>type - Unit type</li>
                   <li>price - Price (numeric)</li>
                   <li>area - Total area in sqft (numeric)</li>
                 </ul>
@@ -406,16 +493,14 @@ export default function ImportInventoryPage() {
               <div>
                 <h3 className="font-medium mb-2">Optional Fields:</h3>
                 <ul className="list-disc pl-5 space-y-1">
-                  <li>id - Unit ID (auto-generated if not provided)</li>
-                  <li>developerName - Developer name (auto-filled from project if not provided)</li>
-                  <li>bedrooms - Number of bedrooms</li>
-                  <li>bathrooms - Number of bathrooms</li>
-                  <li>type - Unit type (Apartment, Condo, etc.)</li>
+                  <li>phase - Project phase</li>
+                  <li>building - Building name</li>
+                  <li>floor - Floor number</li>
+                  <li>beds - Number of bedrooms</li>
+                  <li>pricePerSqft - Price per square foot</li>
                   <li>status - Unit status (Available, Reserved, Under Offer, Sold)</li>
-                  <li>internalArea - Internal area in sqft</li>
-                  <li>externalArea - External area in sqft</li>
+                  <li>bathrooms - Number of bathrooms</li>
                   <li>views - View type</li>
-                  <li>floorPlate - Floor plate</li>
                   <li>clientName - Client name (required for Reserved, Under Offer, Sold)</li>
                   <li>clientEmail - Client email (required for Reserved, Under Offer, Sold)</li>
                   <li>agentName - Agent name (required for Reserved, Under Offer, Sold)</li>
@@ -426,14 +511,11 @@ export default function ImportInventoryPage() {
             <div className="mt-4">
               <h3 className="font-medium mb-2">Sample CSV Format:</h3>
               <pre className="bg-muted p-4 rounded-md overflow-x-auto text-xs">
-                title,projectName,developerName,location,price,area,bedrooms,bathrooms,type,status,clientName,clientEmail,agentName,agencyName
+                unit,project,phase,building,floor,type,beds,area,pricePerSqft,price,status
                 <br />
-                "Luxury Apartment 101","Azure Towers","Coastal Developments Inc.","Miami Beach,
-                FL",750000,1200,2,2,"Apartment","Available"
+                "A101","Azure Towers","Phase 1","Tower A",1,"Apartment",2,1200,625,750000,"Available"
                 <br />
-                "Penthouse Suite 501","Sunset Heights","Premium Estates Group","Los Angeles,
-                CA",1250000,2100,3,3.5,"Penthouse","Reserved","Michael Johnson","michael.j@example.com","Sarah
-                Williams","Elite Properties"
+                "PH501","Sunset Heights","Phase 2","Tower B",5,"Penthouse",3,2100,595,1250000,"Reserved"
               </pre>
             </div>
           </CardContent>
