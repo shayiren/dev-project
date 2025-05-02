@@ -18,7 +18,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <header className="flex h-16 items-center justify-between border-b px-4">
             <h1 className="text-lg font-semibold">Dashboard</h1>
           </header>
-          <main className="flex-1">{children}</main>
+          <main className="flex-1">
+            {/* Added a wrapper div to ensure children are rendered */}
+            <div>{children}</div>
+          </main>
         </div>
       </div>
     </div>

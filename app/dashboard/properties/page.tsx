@@ -1,5 +1,10 @@
-import PropertiesClientWrapper from "./client-wrapper"
+import { Suspense } from "react"
+import PropertiesClient from "./properties-client"
 
 export default function PropertiesPage() {
-  return <PropertiesClientWrapper />
+  return (
+    <Suspense fallback={<div className="p-8">Loading properties...</div>}>
+      <PropertiesClient />
+    </Suspense>
+  )
 }

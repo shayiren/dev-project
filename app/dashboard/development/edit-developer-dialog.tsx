@@ -17,11 +17,11 @@ import { Textarea } from "@/components/ui/textarea"
 interface EditDeveloperDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onEditDeveloper: (developer: any) => void
+  onDeveloperUpdated: () => void
   developer: any | null
 }
 
-export function EditDeveloperDialog({ open, onOpenChange, onEditDeveloper, developer }: EditDeveloperDialogProps) {
+export function EditDeveloperDialog({ open, onOpenChange, onDeveloperUpdated, developer }: EditDeveloperDialogProps) {
   const [name, setName] = useState("")
   const [contactPerson, setContactPerson] = useState("")
   const [email, setEmail] = useState("")
@@ -70,7 +70,18 @@ export function EditDeveloperDialog({ open, onOpenChange, onEditDeveloper, devel
       description,
     }
 
-    onEditDeveloper(updatedDeveloper)
+    // Get existing developers from localStorage
+    const savedDevelopers = localStorage.getItem("realEstateDeveloperDetails")
+    const developers = savedDevelopers ? JSON.parse(savedDevelopers) : []
+
+    // Update the developer
+    const updatedDevelopers = developers.map((dev: any) => (dev.id === developer.id ? updatedDeveloper : dev))
+
+    // Save back to localStorage
+    localStorage.setItem("realEstateDeveloperDetails", JSON.stringify(updatedDevelopers))
+
+    // Notify parent component
+    onDeveloperUpdated()
     onOpenChange(false)
   }
 
@@ -79,19 +90,19 @@ export function EditDeveloperDialog({ open, onOpenChange, onEditDeveloper, devel
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Edit Developer</DialogTitle>
-          <DialogDescription>Update the details for this real estate developer.</DialogDescription>
+          <DialogDescription>Update the details for this developer.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="name" className="text-right">
-              Developer Name <span className="text-red-500">*</span>
+              Developer Name
             </Label>
             <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" />
             {errors.name && <p className="col-span-3 col-start-2 text-sm text-red-500">{errors.name}</p>}
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="contactPerson" className="text-right">
-              Contact Person <span className="text-red-500">*</span>
+              Contact Person
             </Label>
             <Input
               id="contactPerson"
@@ -105,7 +116,7 @@ export function EditDeveloperDialog({ open, onOpenChange, onEditDeveloper, devel
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="email" className="text-right">
-              Email <span className="text-red-500">*</span>
+              Email
             </Label>
             <Input
               id="email"

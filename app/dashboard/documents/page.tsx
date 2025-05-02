@@ -4,6 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { FileText, Download, Eye, Trash2 } from "lucide-react"
 
 export default function DocumentsPage() {
+  console.log("Documents Management Page Loaded")
   // Sample documents data
   const documents = [
     {

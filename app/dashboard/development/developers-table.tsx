@@ -127,6 +127,7 @@ export function DevelopersTable() {
             if (!open) setDeleteDeveloper(null)
           }}
           onDeveloperDeleted={handleDeveloperUpdated}
+          hasProjects={false}
         />
       )}
     </div>

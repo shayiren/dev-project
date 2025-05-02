@@ -2,338 +2,458 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { useToast } from "@/components/ui/use-toast"
-import { Plus, Trash } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Plus, Trash2, Edit, Save } from "lucide-react"
+import { loadFromStorage, saveToStorage } from "@/utils/storage-utils"
 
 export default function PaymentPlansManager() {
-  const { toast } = useToast()
-  const [projects, setProjects] = useState<string[]>([])
-  const [selectedProject, setSelectedProject] = useState<string>("default")
-  const [paymentPlans, setPaymentPlans] = useState<any>({})
-  const [isLoading, setIsLoading] = useState(true)
-
-  // New installment state
-  const [newInstallment, setNewInstallment] = useState({
+  const [paymentPlans, setPaymentPlans] = useState<any[]>([])
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [currentPlan, setCurrentPlan] = useState<any>(null)
+  const [newPlan, setNewPlan] = useState({
     name: "",
-    milestone: "",
-    percentage: 0,
+    description: "",
+    installments: [
+      { name: "Booking", milestone: "On Booking", percentage: 10 },
+      { name: "Final Payment", milestone: "On Handover", percentage: 90 },
+    ],
   })
 
-  // Load projects and payment plans on component mount
+  // Load payment plans on component mount
   useEffect(() => {
-    loadData()
+    const savedPlans = loadFromStorage<any[]>("paymentPlans", [
+      {
+        id: "plan1",
+        name: "Standard Payment Plan",
+        description: "40/60 Payment Plan",
+        installments: [
+          { name: "Booking", milestone: "On Booking", percentage: 10 },
+          { name: "1st Installment", milestone: "Within 30 days", percentage: 10 },
+          { name: "2nd Installment", milestone: "Within 60 days", percentage: 10 },
+          { name: "3rd Installment", milestone: "Within 90 days", percentage: 10 },
+          { name: "Final Payment", milestone: "On Handover", percentage: 60 },
+        ],
+      },
+      {
+        id: "plan2",
+        name: "Extended Payment Plan",
+        description: "30/70 Payment Plan",
+        installments: [
+          { name: "Booking", milestone: "On Booking", percentage: 10 },
+          { name: "1st Installment", milestone: "Within 30 days", percentage: 5 },
+          { name: "2nd Installment", milestone: "Within 60 days", percentage: 5 },
+          { name: "3rd Installment", milestone: "Within 90 days", percentage: 5 },
+          { name: "4th Installment", milestone: "Within 120 days", percentage: 5 },
+          { name: "Final Payment", milestone: "On Handover", percentage: 70 },
+        ],
+      },
+    ])
+    setPaymentPlans(savedPlans)
   }, [])
 
-  const loadData = async () => {
-    setIsLoading(true)
-    try {
-      // Load projects from localStorage
-      const savedProjects = localStorage.getItem("projects")
-      if (savedProjects) {
-        const parsedProjects = JSON.parse(savedProjects)
-        if (Array.isArray(parsedProjects)) {
-          const projectNames = parsedProjects.map((p: any) => p.name || p.projectName)
-          setProjects(projectNames)
-        }
-      }
+  // Save payment plans whenever they change
+  useEffect(() => {
+    if (paymentPlans.length > 0) {
+      saveToStorage("paymentPlans", paymentPlans)
+    }
+  }, [paymentPlans])
 
-      // Load payment plans from localStorage
-      const savedPaymentPlans = localStorage.getItem("paymentPlans")
-      if (savedPaymentPlans) {
-        setPaymentPlans(JSON.parse(savedPaymentPlans))
-      } else {
-        // Set default payment plan if none exists
-        const defaultPlan = {
-          default: {
-            installments: [
-              { name: "Booking Amount", milestone: "Effective date", percentage: 20 },
-              { name: "1st Installment", milestone: "60 days from the booking date", percentage: 5 },
-              { name: "2nd Installment", milestone: "120 days from the booking date", percentage: 5 },
-              {
-                name: "3rd Installment",
-                milestone: "180 days from the booking date. *completion of 15% Construction",
-                percentage: 5,
-              },
-              {
-                name: "4th Installment",
-                milestone: "240 days from the booking date. *completion of 25% Construction",
-                percentage: 5,
-              },
-              {
-                name: "5th Installment",
-                milestone: "300 days from the booking date. *completion of 40% Construction",
-                percentage: 5,
-              },
-              {
-                name: "6th Installment",
-                milestone: "360 days from the booking date. * completion of 60% Construction",
-                percentage: 5,
-              },
-              { name: "Final Amount", milestone: "Completion", percentage: 50 },
-            ],
-          },
-        }
-        setPaymentPlans(defaultPlan)
-        localStorage.setItem("paymentPlans", JSON.stringify(defaultPlan))
-      }
-    } catch (error) {
-      console.error("Error loading data:", error)
-    } finally {
-      setIsLoading(false)
+  // Add a new payment plan
+  const addPaymentPlan = () => {
+    const newPlanWithId = {
+      ...newPlan,
+      id: `plan${Date.now()}`,
+    }
+    setPaymentPlans([...paymentPlans, newPlanWithId])
+    setNewPlan({
+      name: "",
+      description: "",
+      installments: [
+        { name: "Booking", milestone: "On Booking", percentage: 10 },
+        { name: "Final Payment", milestone: "On Handover", percentage: 90 },
+      ],
+    })
+    setIsAddDialogOpen(false)
+  }
+
+  // Edit an existing payment plan
+  const editPaymentPlan = () => {
+    if (currentPlan) {
+      setPaymentPlans(paymentPlans.map((plan) => (plan.id === currentPlan.id ? currentPlan : plan)))
+      setCurrentPlan(null)
+      setIsEditDialogOpen(false)
     }
   }
 
-  const handleProjectChange = (value: string) => {
-    setSelectedProject(value)
-
-    // If this project doesn't have a payment plan yet, create one based on the default
-    if (!paymentPlans[value] && value !== "default") {
-      const updatedPlans = {
-        ...paymentPlans,
-        [value]: JSON.parse(JSON.stringify(paymentPlans.default)), // Deep copy default plan
-      }
-      setPaymentPlans(updatedPlans)
-      localStorage.setItem("paymentPlans", JSON.stringify(updatedPlans))
+  // Delete a payment plan
+  const deletePaymentPlan = (id: string) => {
+    if (confirm("Are you sure you want to delete this payment plan?")) {
+      setPaymentPlans(paymentPlans.filter((plan) => plan.id !== id))
     }
   }
 
-  const handleInstallmentChange = (index: number, field: string, value: any) => {
-    const currentPlan = paymentPlans[selectedProject]
-    if (!currentPlan) return
+  // Add a new installment to a plan
+  const addInstallment = (plan: any) => {
+    const updatedPlan = { ...plan }
+    const newInstallment = {
+      name: `Installment ${updatedPlan.installments.length}`,
+      milestone: "TBD",
+      percentage: 0,
+    }
+    updatedPlan.installments = [...updatedPlan.installments, newInstallment]
 
-    const updatedInstallments = [...currentPlan.installments]
-    updatedInstallments[index] = {
-      ...updatedInstallments[index],
+    if (plan.id === currentPlan?.id) {
+      setCurrentPlan(updatedPlan)
+    } else {
+      setNewPlan(updatedPlan)
+    }
+  }
+
+  // Remove an installment from a plan
+  const removeInstallment = (plan: any, index: number) => {
+    const updatedPlan = { ...plan }
+    updatedPlan.installments = updatedPlan.installments.filter((_, i) => i !== index)
+
+    if (plan.id === currentPlan?.id) {
+      setCurrentPlan(updatedPlan)
+    } else {
+      setNewPlan(updatedPlan)
+    }
+  }
+
+  // Update installment details
+  const updateInstallment = (plan: any, index: number, field: string, value: string | number) => {
+    const updatedPlan = { ...plan }
+    updatedPlan.installments = [...updatedPlan.installments]
+    updatedPlan.installments[index] = {
+      ...updatedPlan.installments[index],
       [field]: field === "percentage" ? Number(value) : value,
     }
 
-    const updatedPlans = {
-      ...paymentPlans,
-      [selectedProject]: {
-        ...currentPlan,
-        installments: updatedInstallments,
-      },
+    if (plan.id === currentPlan?.id) {
+      setCurrentPlan(updatedPlan)
+    } else {
+      setNewPlan(updatedPlan)
     }
-
-    setPaymentPlans(updatedPlans)
-    localStorage.setItem("paymentPlans", JSON.stringify(updatedPlans))
-  }
-
-  const handleAddInstallment = () => {
-    if (!newInstallment.name || !newInstallment.milestone || newInstallment.percentage <= 0) {
-      toast({
-        title: "Invalid installment",
-        description: "Please fill in all fields with valid values",
-        variant: "destructive",
-      })
-      return
-    }
-
-    const currentPlan = paymentPlans[selectedProject]
-    if (!currentPlan) return
-
-    const updatedInstallments = [
-      ...currentPlan.installments,
-      { ...newInstallment, percentage: Number(newInstallment.percentage) },
-    ]
-
-    const updatedPlans = {
-      ...paymentPlans,
-      [selectedProject]: {
-        ...currentPlan,
-        installments: updatedInstallments,
-      },
-    }
-
-    setPaymentPlans(updatedPlans)
-    localStorage.setItem("paymentPlans", JSON.stringify(updatedPlans))
-
-    // Reset new installment form
-    setNewInstallment({
-      name: "",
-      milestone: "",
-      percentage: 0,
-    })
-
-    toast({
-      title: "Installment added",
-      description: "The installment has been added to the payment plan",
-    })
-  }
-
-  const handleRemoveInstallment = (index: number) => {
-    const currentPlan = paymentPlans[selectedProject]
-    if (!currentPlan) return
-
-    const updatedInstallments = currentPlan.installments.filter((_: any, i: number) => i !== index)
-
-    const updatedPlans = {
-      ...paymentPlans,
-      [selectedProject]: {
-        ...currentPlan,
-        installments: updatedInstallments,
-      },
-    }
-
-    setPaymentPlans(updatedPlans)
-    localStorage.setItem("paymentPlans", JSON.stringify(updatedPlans))
-
-    toast({
-      title: "Installment removed",
-      description: "The installment has been removed from the payment plan",
-    })
   }
 
   // Calculate total percentage
-  const getTotalPercentage = () => {
-    const currentPlan = paymentPlans[selectedProject]
-    if (!currentPlan) return 0
-
-    return currentPlan.installments.reduce((total: number, installment: any) => {
-      return total + Number(installment.percentage)
-    }, 0)
+  const calculateTotalPercentage = (installments: any[]) => {
+    return installments.reduce((sum, installment) => sum + (installment.percentage || 0), 0)
   }
 
-  const totalPercentage = getTotalPercentage()
-
   return (
-    <div className="p-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+    <div className="space-y-6">
+      <div className="flex flex-col space-y-4">
+        <h1 className="text-2xl font-bold tracking-tight">Payment Plans</h1>
+        <p className="text-muted-foreground">Manage payment plans for sales offers</p>
+      </div>
+
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Payment Plans</h1>
-          <p className="text-muted-foreground">Manage payment plans for different projects</p>
+          <h2 className="text-xl font-semibold">Available Payment Plans</h2>
+          <p className="text-sm text-muted-foreground">Create and manage payment plans for your properties</p>
         </div>
-      </div>
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Payment Plan
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>Add New Payment Plan</DialogTitle>
+              <DialogDescription>Create a new payment plan for your properties.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Plan Name</Label>
+                  <Input
+                    id="name"
+                    value={newPlan.name}
+                    onChange={(e) => setNewPlan({ ...newPlan, name: e.target.value })}
+                    placeholder="e.g., Standard Payment Plan"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="description">Description</Label>
+                  <Input
+                    id="description"
+                    value={newPlan.description}
+                    onChange={(e) => setNewPlan({ ...newPlan, description: e.target.value })}
+                    placeholder="e.g., 40/60 Payment Plan"
+                  />
+                </div>
+              </div>
 
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <Select value={selectedProject} onValueChange={handleProjectChange}>
-          <SelectTrigger className="w-full sm:w-[300px]">
-            <SelectValue placeholder="Select Project" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="default">Default Payment Plan</SelectItem>
-            {projects.map((project) => (
-              <SelectItem key={project} value={project}>
-                {project}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {selectedProject === "default" ? "Default Payment Plan" : `Payment Plan for ${selectedProject}`}
-          </CardTitle>
-          <CardDescription>
-            {selectedProject === "default"
-              ? "This plan will be used for all projects that don't have a specific payment plan"
-              : "Customize the payment plan for this specific project"}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex justify-center items-center h-40">
-              <p>Loading payment plans...</p>
-            </div>
-          ) : (
-            <>
-              <div className="rounded-md border overflow-x-auto">
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <Label>Installments</Label>
+                  <Button variant="outline" size="sm" onClick={() => addInstallment(newPlan)}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Installment
+                  </Button>
+                </div>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Installment Name</TableHead>
-                      <TableHead>Payment Milestone</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Milestone</TableHead>
                       <TableHead>Percentage (%)</TableHead>
-                      <TableHead className="w-[100px]">Actions</TableHead>
+                      <TableHead className="w-[80px]"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {paymentPlans[selectedProject]?.installments.map((installment: any, index: number) => (
+                    {newPlan.installments.map((installment, index) => (
                       <TableRow key={index}>
                         <TableCell>
                           <Input
                             value={installment.name}
-                            onChange={(e) => handleInstallmentChange(index, "name", e.target.value)}
+                            onChange={(e) => updateInstallment(newPlan, index, "name", e.target.value)}
+                            placeholder="e.g., Booking"
                           />
                         </TableCell>
                         <TableCell>
                           <Input
                             value={installment.milestone}
-                            onChange={(e) => handleInstallmentChange(index, "milestone", e.target.value)}
+                            onChange={(e) => updateInstallment(newPlan, index, "milestone", e.target.value)}
+                            placeholder="e.g., On Booking"
                           />
                         </TableCell>
                         <TableCell>
                           <Input
                             type="number"
                             value={installment.percentage}
-                            onChange={(e) => handleInstallmentChange(index, "percentage", e.target.value)}
+                            onChange={(e) => updateInstallment(newPlan, index, "percentage", e.target.value)}
+                            placeholder="e.g., 10"
                           />
                         </TableCell>
                         <TableCell>
-                          <Button variant="ghost" size="icon" onClick={() => handleRemoveInstallment(index)}>
-                            <Trash className="h-4 w-4" />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeInstallment(newPlan, index)}
+                            disabled={newPlan.installments.length <= 1}
+                          >
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </TableCell>
                       </TableRow>
                     ))}
+                    <TableRow>
+                      <TableCell colSpan={2} className="text-right font-bold">
+                        Total
+                      </TableCell>
+                      <TableCell
+                        className={
+                          calculateTotalPercentage(newPlan.installments) === 100 ? "text-green-600" : "text-red-600"
+                        }
+                      >
+                        {calculateTotalPercentage(newPlan.installments)}%
+                      </TableCell>
+                      <TableCell></TableCell>
+                    </TableRow>
                   </TableBody>
                 </Table>
+                {calculateTotalPercentage(newPlan.installments) !== 100 && (
+                  <p className="text-sm text-red-600">Total percentage must equal 100%</p>
+                )}
               </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={addPaymentPlan}
+                disabled={
+                  !newPlan.name || !newPlan.description || calculateTotalPercentage(newPlan.installments) !== 100
+                }
+              >
+                <Save className="mr-2 h-4 w-4" />
+                Save Payment Plan
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
 
-              <div className="flex justify-end mt-4">
-                <div className={`text-sm font-medium ${totalPercentage === 100 ? "text-green-600" : "text-red-600"}`}>
-                  Total: {totalPercentage}% {totalPercentage !== 100 && "(Should be 100%)"}
-                </div>
-              </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {paymentPlans.map((plan) => (
+          <Card key={plan.id}>
+            <CardHeader>
+              <CardTitle>{plan.name}</CardTitle>
+              <CardDescription>{plan.description}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Installment</TableHead>
+                    <TableHead>Percentage</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {plan.installments.map((installment: any, index: number) => (
+                    <TableRow key={index}>
+                      <TableCell>{installment.name}</TableCell>
+                      <TableCell>{installment.percentage}%</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+            <CardFooter className="flex justify-end gap-2">
+              <Dialog open={isEditDialogOpen && currentPlan?.id === plan.id} onOpenChange={setIsEditDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" onClick={() => setCurrentPlan({ ...plan })}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[600px]">
+                  <DialogHeader>
+                    <DialogTitle>Edit Payment Plan</DialogTitle>
+                    <DialogDescription>Modify the payment plan details.</DialogDescription>
+                  </DialogHeader>
+                  {currentPlan && (
+                    <div className="space-y-4 py-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-name">Plan Name</Label>
+                          <Input
+                            id="edit-name"
+                            value={currentPlan.name}
+                            onChange={(e) => setCurrentPlan({ ...currentPlan, name: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-description">Description</Label>
+                          <Input
+                            id="edit-description"
+                            value={currentPlan.description}
+                            onChange={(e) => setCurrentPlan({ ...currentPlan, description: e.target.value })}
+                          />
+                        </div>
+                      </div>
 
-              <div className="mt-6 border-t pt-6">
-                <h3 className="text-lg font-medium mb-4">Add New Installment</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="installmentName">Installment Name</Label>
-                    <Input
-                      id="installmentName"
-                      placeholder="e.g., 1st Installment"
-                      value={newInstallment.name}
-                      onChange={(e) => setNewInstallment({ ...newInstallment, name: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="installmentMilestone">Payment Milestone</Label>
-                    <Input
-                      id="installmentMilestone"
-                      placeholder="e.g., 60 days from booking"
-                      value={newInstallment.milestone}
-                      onChange={(e) => setNewInstallment({ ...newInstallment, milestone: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="installmentPercentage">Percentage (%)</Label>
-                    <Input
-                      id="installmentPercentage"
-                      type="number"
-                      placeholder="e.g., 10"
-                      value={newInstallment.percentage || ""}
-                      onChange={(e) => setNewInstallment({ ...newInstallment, percentage: Number(e.target.value) })}
-                    />
-                  </div>
-                </div>
-                <Button className="mt-4" onClick={handleAddInstallment}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Installment
-                </Button>
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <Label>Installments</Label>
+                          <Button variant="outline" size="sm" onClick={() => addInstallment(currentPlan)}>
+                            <Plus className="h-4 w-4 mr-1" />
+                            Add Installment
+                          </Button>
+                        </div>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Name</TableHead>
+                              <TableHead>Milestone</TableHead>
+                              <TableHead>Percentage (%)</TableHead>
+                              <TableHead className="w-[80px]"></TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {currentPlan.installments.map((installment: any, index: number) => (
+                              <TableRow key={index}>
+                                <TableCell>
+                                  <Input
+                                    value={installment.name}
+                                    onChange={(e) => updateInstallment(currentPlan, index, "name", e.target.value)}
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <Input
+                                    value={installment.milestone}
+                                    onChange={(e) => updateInstallment(currentPlan, index, "milestone", e.target.value)}
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <Input
+                                    type="number"
+                                    value={installment.percentage}
+                                    onChange={(e) =>
+                                      updateInstallment(currentPlan, index, "percentage", e.target.value)
+                                    }
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => removeInstallment(currentPlan, index)}
+                                    disabled={currentPlan.installments.length <= 1}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                            <TableRow>
+                              <TableCell colSpan={2} className="text-right font-bold">
+                                Total
+                              </TableCell>
+                              <TableCell
+                                className={
+                                  calculateTotalPercentage(currentPlan.installments) === 100
+                                    ? "text-green-600"
+                                    : "text-red-600"
+                                }
+                              >
+                                {calculateTotalPercentage(currentPlan.installments)}%
+                              </TableCell>
+                              <TableCell></TableCell>
+                            </TableRow>
+                          </TableBody>
+                        </Table>
+                        {calculateTotalPercentage(currentPlan.installments) !== 100 && (
+                          <p className="text-sm text-red-600">Total percentage must equal 100%</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={editPaymentPlan}
+                      disabled={
+                        !currentPlan?.name ||
+                        !currentPlan?.description ||
+                        calculateTotalPercentage(currentPlan?.installments || []) !== 100
+                      }
+                    >
+                      <Save className="mr-2 h-4 w-4" />
+                      Save Changes
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+              <Button variant="destructive" size="sm" onClick={() => deletePaymentPlan(plan.id)}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </Button>
+            </CardFooter>
+          </Card>
+        ))}
+      </div>
     </div>
   )
 }

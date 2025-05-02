@@ -9,27 +9,32 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { AlertCircle } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { loadFromStorage } from "@/utils/storage-utils"
 
 interface DeleteProjectDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onDeleteProject: () => void
+  onProjectDeleted: () => void
   project: any | null
 }
 
-export function DeleteProjectDialog({ open, onOpenChange, onDeleteProject, project }: DeleteProjectDialogProps) {
-  // Check if there are properties associated with this project
-  const hasProperties = () => {
-    if (!project) return false
+export function DeleteProjectDialog({ open, onOpenChange, onProjectDeleted, project }: DeleteProjectDialogProps) {
+  const handleDelete = () => {
+    if (!project) return
 
-    const properties = loadFromStorage("properties", [])
-    return properties.some((property: any) => property.projectName === project.name)
+    // Get existing projects from localStorage
+    const savedProjects = localStorage.getItem("projects")
+    const projects = savedProjects ? JSON.parse(savedProjects) : []
+
+    // Remove the project
+    const updatedProjects = projects.filter((proj: any) => proj.name !== project.name)
+
+    // Save back to localStorage
+    localStorage.setItem("projects", JSON.stringify(updatedProjects))
+
+    // Notify parent component
+    onProjectDeleted()
+    onOpenChange(false)
   }
-
-  const propertiesExist = hasProperties()
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -40,16 +45,6 @@ export function DeleteProjectDialog({ open, onOpenChange, onDeleteProject, proje
             Are you sure you want to delete this project? This action cannot be undone.
           </DialogDescription>
         </DialogHeader>
-
-        {propertiesExist && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Warning</AlertTitle>
-            <AlertDescription>
-              This project has associated properties. Deleting this project may affect those properties.
-            </AlertDescription>
-          </Alert>
-        )}
 
         <div className="py-4">
           {project && (
@@ -74,7 +69,7 @@ export function DeleteProjectDialog({ open, onOpenChange, onDeleteProject, proje
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button variant="destructive" onClick={onDeleteProject}>
+          <Button variant="destructive" onClick={handleDelete}>
             Delete
           </Button>
         </DialogFooter>
