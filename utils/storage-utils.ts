@@ -36,8 +36,7 @@ export function saveToStorage<T>(key: string, data: T): boolean {
 
 // Load data from localStorage with error handling
 export function loadFromStorage<T>(key: string, defaultValue: T): T {
-  const localStorage = getLocalStorage(key)
-  if (!localStorage) return defaultValue
+  if (typeof window === "undefined") return defaultValue
 
   try {
     const savedData = localStorage.getItem(key)
