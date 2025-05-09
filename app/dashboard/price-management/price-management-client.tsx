@@ -472,77 +472,78 @@ export default function PriceManagementClient() {
       <p className="text-muted-foreground mb-8">Adjust prices for available properties</p>
 
       <div className="grid grid-cols-1 gap-6">
-        {/* Unit-Specific Price Adjustment - Now first */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Unit-Specific Price Adjustment</CardTitle>
-            <CardDescription>Adjust price for a specific unit by unit number</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="unitSelect">Select or Type Unit Number</Label>
-                <Popover open={openUnitCombobox} onOpenChange={setOpenUnitCombobox}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={openUnitCombobox}
-                      className="w-full justify-between"
-                    >
-                      {selectedUnit ? `Unit ${selectedUnit}` : "Search for a unit..."}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-full p-0">
-                    <Command>
-                      <CommandInput
-                        placeholder="Search unit number..."
-                        value={unitFilter}
-                        onValueChange={setUnitFilter}
-                      />
-                      <CommandEmpty>No units found.</CommandEmpty>
-                      <CommandGroup>
-                        <CommandList className="max-h-60 overflow-y-auto">
-                          {filteredUnits.map((property) => (
-                            <CommandItem
-                              key={property.id}
-                              value={property.unitNumber}
-                              onSelect={() => handleUnitSelection(property.unitNumber)}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  selectedUnit === property.unitNumber ? "opacity-100" : "opacity-0",
-                                )}
-                              />
-                              Unit {property.unitNumber} - {property.bedrooms} BR - AED{" "}
-                              {property.price.toLocaleString()}
-                            </CommandItem>
-                          ))}
-                        </CommandList>
-                      </CommandGroup>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
+        {/* First row - Unit-Specific and Series-Based side by side */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Unit-Specific Price Adjustment */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Unit-Specific Price Adjustment</CardTitle>
+              <CardDescription>Adjust price for a specific unit by unit number</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="unitSelect">Select or Type Unit Number</Label>
+                  <Popover open={openUnitCombobox} onOpenChange={setOpenUnitCombobox}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={openUnitCombobox}
+                        className="w-full justify-between"
+                      >
+                        {selectedUnit ? `Unit ${selectedUnit}` : "Search for a unit..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0">
+                      <Command>
+                        <CommandInput
+                          placeholder="Search unit number..."
+                          value={unitFilter}
+                          onValueChange={setUnitFilter}
+                        />
+                        <CommandEmpty>No units found.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandList className="max-h-60 overflow-y-auto">
+                            {filteredUnits.map((property) => (
+                              <CommandItem
+                                key={property.id}
+                                value={property.unitNumber}
+                                onSelect={() => handleUnitSelection(property.unitNumber)}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    selectedUnit === property.unitNumber ? "opacity-100" : "opacity-0",
+                                  )}
+                                />
+                                Unit {property.unitNumber} - {property.bedrooms} BR - AED{" "}
+                                {property.price.toLocaleString()}
+                              </CommandItem>
+                            ))}
+                          </CommandList>
+                        </CommandGroup>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
 
-              <Tabs defaultValue="fixed" className="mb-6">
-                <TabsList className="grid grid-cols-3">
-                  <TabsTrigger value="fixed" onClick={() => setUnitIncreaseType("fixed")}>
-                    Fixed Amount
-                  </TabsTrigger>
-                  <TabsTrigger value="percentage" onClick={() => setUnitIncreaseType("percentage")}>
-                    Percentage
-                  </TabsTrigger>
-                  <TabsTrigger value="sqft" onClick={() => setUnitIncreaseType("sqft")}>
-                    Price per Sqft
-                  </TabsTrigger>
-                </TabsList>
+                <Tabs defaultValue="fixed" className="mb-4">
+                  <TabsList className="grid grid-cols-3">
+                    <TabsTrigger value="fixed" onClick={() => setUnitIncreaseType("fixed")}>
+                      Fixed Amount
+                    </TabsTrigger>
+                    <TabsTrigger value="percentage" onClick={() => setUnitIncreaseType("percentage")}>
+                      Percentage
+                    </TabsTrigger>
+                    <TabsTrigger value="sqft" onClick={() => setUnitIncreaseType("sqft")}>
+                      Price per Sqft
+                    </TabsTrigger>
+                  </TabsList>
 
-                <TabsContent value="fixed">
-                  <div className="flex flex-col space-y-4 mt-4">
-                    <div>
+                  <TabsContent value="fixed">
+                    <div className="mt-2">
                       <Label htmlFor="unitPriceIncrease">Increase Amount (AED)</Label>
                       <Input
                         id="unitPriceIncrease"
@@ -551,12 +552,10 @@ export default function PriceManagementClient() {
                         onChange={(e) => setUnitPriceIncrease(e.target.value)}
                       />
                     </div>
-                  </div>
-                </TabsContent>
+                  </TabsContent>
 
-                <TabsContent value="percentage">
-                  <div className="flex flex-col space-y-4 mt-4">
-                    <div>
+                  <TabsContent value="percentage">
+                    <div className="mt-2">
                       <Label htmlFor="unitPercentageIncrease">Increase Percentage (%)</Label>
                       <Input
                         id="unitPercentageIncrease"
@@ -565,12 +564,10 @@ export default function PriceManagementClient() {
                         onChange={(e) => setUnitPercentageIncrease(e.target.value)}
                       />
                     </div>
-                  </div>
-                </TabsContent>
+                  </TabsContent>
 
-                <TabsContent value="sqft">
-                  <div className="flex flex-col space-y-4 mt-4">
-                    <div>
+                  <TabsContent value="sqft">
+                    <div className="mt-2">
                       <Label htmlFor="newPricePerSqft">New Price per Sqft (AED)</Label>
                       <Input
                         id="newPricePerSqft"
@@ -579,57 +576,55 @@ export default function PriceManagementClient() {
                         onChange={(e) => setNewPricePerSqft(e.target.value)}
                       />
                     </div>
+                  </TabsContent>
+                </Tabs>
+
+                {selectedUnit && (
+                  <div className="bg-muted p-3 rounded-md space-y-1 text-sm">
+                    <p>
+                      <strong>Current Price:</strong> AED{" "}
+                      {properties.find((p) => p.unitNumber === selectedUnit)?.price.toLocaleString() || "N/A"}
+                    </p>
+                    <p>
+                      <strong>Current Price/Sqft:</strong> AED{" "}
+                      {(
+                        (properties.find((p) => p.unitNumber === selectedUnit)?.price || 0) /
+                        (properties.find((p) => p.unitNumber === selectedUnit)?.totalArea || 1)
+                      ).toFixed(2) || "N/A"}
+                    </p>
+
+                    {calculatedPrice !== null && (
+                      <>
+                        <p>
+                          <strong>New Price:</strong> AED {calculatedPrice.toLocaleString()}
+                        </p>
+                        <p>
+                          <strong>Price Change:</strong>{" "}
+                          {calculatedPercentage !== null ? calculatedPercentage.toFixed(2) : "0"}%
+                        </p>
+                        <p>
+                          <strong>New Price/Sqft:</strong> AED{" "}
+                          {calculatedPricePerSqft !== null ? calculatedPricePerSqft.toFixed(2) : "0"}
+                        </p>
+                      </>
+                    )}
                   </div>
-                </TabsContent>
-              </Tabs>
+                )}
 
-              {selectedUnit && (
-                <div className="bg-muted p-4 rounded-md space-y-2 text-sm">
-                  <p>
-                    <strong>Current Price:</strong> AED{" "}
-                    {properties.find((p) => p.unitNumber === selectedUnit)?.price.toLocaleString() || "N/A"}
-                  </p>
-                  <p>
-                    <strong>Current Price/Sqft:</strong> AED{" "}
-                    {(
-                      (properties.find((p) => p.unitNumber === selectedUnit)?.price || 0) /
-                      (properties.find((p) => p.unitNumber === selectedUnit)?.totalArea || 1)
-                    ).toFixed(2) || "N/A"}
-                  </p>
+                <Button onClick={handleUnitPriceAdjustment} disabled={!selectedUnit} className="w-full">
+                  Apply Price Change
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
-                  {calculatedPrice !== null && (
-                    <>
-                      <p>
-                        <strong>New Price:</strong> AED {calculatedPrice.toLocaleString()}
-                      </p>
-                      <p>
-                        <strong>Price Change:</strong>{" "}
-                        {calculatedPercentage !== null ? calculatedPercentage.toFixed(2) : "0"}%
-                      </p>
-                      <p>
-                        <strong>New Price/Sqft:</strong> AED{" "}
-                        {calculatedPricePerSqft !== null ? calculatedPricePerSqft.toFixed(2) : "0"}
-                      </p>
-                    </>
-                  )}
-                </div>
-              )}
-
-              <Button onClick={handleUnitPriceAdjustment} disabled={!selectedUnit}>
-                Apply Price Change
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Series-Based Price Adjustment - New section */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Series-Based Price Adjustment</CardTitle>
-            <CardDescription>Adjust prices for units in a specific series or pattern</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
+          {/* Series-Based Price Adjustment */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Series-Based Price Adjustment</CardTitle>
+              <CardDescription>Adjust prices for units in a specific series or pattern</CardDescription>
+            </CardHeader>
+            <CardContent>
               <div className="space-y-4">
                 <div>
                   <Label className="mb-2 block">Series Type</Label>
@@ -663,7 +658,7 @@ export default function PriceManagementClient() {
                   />
                 </div>
 
-                <Tabs defaultValue="fixed" className="mb-6">
+                <Tabs defaultValue="fixed" className="mb-4">
                   <TabsList className="grid grid-cols-3">
                     <TabsTrigger value="fixed" onClick={() => setSeriesIncreaseType("fixed")}>
                       Fixed Amount
@@ -677,67 +672,61 @@ export default function PriceManagementClient() {
                   </TabsList>
 
                   <TabsContent value="fixed">
-                    <div className="flex flex-col space-y-4 mt-4">
-                      <div>
-                        <Label htmlFor="seriesFixedAmount">Increase Amount (AED)</Label>
-                        <Input
-                          id="seriesFixedAmount"
-                          placeholder="e.g., 50000"
-                          value={seriesIncreaseAmount}
-                          onChange={(e) => {
-                            setSeriesIncreaseAmount(e.target.value)
-                            setSeriesPreview({})
-                          }}
-                        />
-                      </div>
+                    <div className="mt-2">
+                      <Label htmlFor="seriesFixedAmount">Increase Amount (AED)</Label>
+                      <Input
+                        id="seriesFixedAmount"
+                        placeholder="e.g., 50000"
+                        value={seriesIncreaseAmount}
+                        onChange={(e) => {
+                          setSeriesIncreaseAmount(e.target.value)
+                          setSeriesPreview({})
+                        }}
+                      />
                     </div>
                   </TabsContent>
 
                   <TabsContent value="percentage">
-                    <div className="flex flex-col space-y-4 mt-4">
-                      <div>
-                        <Label htmlFor="seriesPercentage">Increase Percentage (%)</Label>
-                        <Input
-                          id="seriesPercentage"
-                          placeholder="e.g., 5"
-                          value={seriesIncreaseAmount}
-                          onChange={(e) => {
-                            setSeriesIncreaseAmount(e.target.value)
-                            setSeriesPreview({})
-                          }}
-                        />
-                      </div>
+                    <div className="mt-2">
+                      <Label htmlFor="seriesPercentage">Increase Percentage (%)</Label>
+                      <Input
+                        id="seriesPercentage"
+                        placeholder="e.g., 5"
+                        value={seriesIncreaseAmount}
+                        onChange={(e) => {
+                          setSeriesIncreaseAmount(e.target.value)
+                          setSeriesPreview({})
+                        }}
+                      />
                     </div>
                   </TabsContent>
 
                   <TabsContent value="sqft">
-                    <div className="flex flex-col space-y-4 mt-4">
-                      <div>
-                        <Label htmlFor="seriesPricePerSqft">New Price per Sqft (AED)</Label>
-                        <Input
-                          id="seriesPricePerSqft"
-                          placeholder="e.g., 2500"
-                          value={seriesIncreaseAmount}
-                          onChange={(e) => {
-                            setSeriesIncreaseAmount(e.target.value)
-                            setSeriesPreview({})
-                          }}
-                        />
-                      </div>
+                    <div className="mt-2">
+                      <Label htmlFor="seriesPricePerSqft">New Price per Sqft (AED)</Label>
+                      <Input
+                        id="seriesPricePerSqft"
+                        placeholder="e.g., 2500"
+                        value={seriesIncreaseAmount}
+                        onChange={(e) => {
+                          setSeriesIncreaseAmount(e.target.value)
+                          setSeriesPreview({})
+                        }}
+                      />
                     </div>
                   </TabsContent>
                 </Tabs>
 
                 {Object.keys(seriesPreview).length > 0 && (
-                  <div className="mt-4 p-3 bg-muted rounded-md">
-                    <p className="font-medium mb-2">
+                  <div className="bg-muted p-3 rounded-md text-sm">
+                    <p className="font-medium mb-1">
                       Preview of changes for units {seriesType === "startsWith" ? "starting with" : "ending with"} '
                       {seriesValue}':
                     </p>
-                    <div className="max-h-40 overflow-y-auto space-y-1">
+                    <div className="max-h-24 overflow-y-auto space-y-1 mb-1">
                       {properties
                         .filter((p) => seriesPreview[p.id])
-                        .slice(0, 5)
+                        .slice(0, 3)
                         .map((property) => (
                           <div key={property.id} className="flex justify-between text-sm">
                             <span>Unit {property.unitNumber}:</span>
@@ -749,26 +738,27 @@ export default function PriceManagementClient() {
                             </div>
                           </div>
                         ))}
-                      {Object.keys(seriesPreview).length > 5 && (
+                      {Object.keys(seriesPreview).length > 3 && (
                         <p className="text-xs text-muted-foreground">
-                          + {Object.keys(seriesPreview).length - 5} more units
+                          + {Object.keys(seriesPreview).length - 3} more units
                         </p>
                       )}
                     </div>
-                    <p className="text-sm mt-2">
+                    <p className="text-sm">
                       <strong>Total units affected:</strong> {Object.keys(seriesPreview).length}
                     </p>
                   </div>
                 )}
 
-                <Button onClick={handleSeriesUpdate}>
+                <Button onClick={handleSeriesUpdate} className="w-full">
                   {Object.keys(seriesPreview).length === 0 ? "Preview Changes" : "Apply Changes"}
                 </Button>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
 
+        {/* Second row - Other price adjustment options */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
