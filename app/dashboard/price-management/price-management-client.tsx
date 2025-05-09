@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
 import { getLocalStorage, setLocalStorage } from "@/utils/storage-utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
 
 interface Property {
   id: string
@@ -30,6 +31,7 @@ export default function PriceManagementClient() {
   const [pricePerSqft, setPricePerSqft] = useState("")
   const [seaViewIncrement, setSeaViewIncrement] = useState("")
   const [bedroomIncrement, setBedroomIncrement] = useState("")
+  const [selectedBedroom, setSelectedBedroom] = useState<string>("1")
   const [bulkDecreaseAmount, setBulkDecreaseAmount] = useState("")
   const [bulkDecreaseType, setBulkDecreaseType] = useState<"fixed" | "percentage">("fixed")
   const { toast } = useToast()
@@ -43,6 +45,13 @@ export default function PriceManagementClient() {
   const [calculatedPrice, setCalculatedPrice] = useState<number | null>(null)
   const [calculatedPricePerSqft, setCalculatedPricePerSqft] = useState<number | null>(null)
 
+  // Preview states for each section
+  const [percentagePreview, setPercentagePreview] = useState<{ [key: string]: number }>({})
+  const [pricePerSqftPreview, setPricePerSqftPreview] = useState<{ [key: string]: number }>({})
+  const [viewBasedPreview, setViewBasedPreview] = useState<{ [key: string]: number }>({})
+  const [bedroomBasedPreview, setBedroomBasedPreview] = useState<{ [key: string]: number }>({})
+  const [bulkDecreasePreview, setBulkDecreasePreview] = useState<{ [key: string]: number }>({})
+
   useEffect(() => {
     const loadedProperties = getLocalStorage("properties", [])
     setProperties(loadedProperties.map((prop: Property) => ({ ...prop, selected: false })))
@@ -54,13 +63,20 @@ export default function PriceManagementClient() {
     setLocalStorage("properties", propsToSave)
     setProperties(updatedProperties)
 
+    // Clear all previews
+    setPercentagePreview({})
+    setPricePerSqftPreview({})
+    setViewBasedPreview({})
+    setBedroomBasedPreview({})
+    setBulkDecreasePreview({})
+
     toast({
       title: "Prices updated",
       description: "Property prices have been successfully updated.",
     })
   }
 
-  const handlePercentageIncrease = () => {
+  const calculatePercentagePreview = () => {
     if (!percentage || isNaN(Number(percentage))) {
       toast({
         title: "Invalid input",
@@ -71,24 +87,30 @@ export default function PriceManagementClient() {
     }
 
     const percentValue = Number(percentage)
-    const updatedProperties = properties.map((property) => {
-      const newPrice = property.price * (1 + percentValue / 100)
-      const newPricePerSqft = newPrice / property.totalArea
-      return {
-        ...property,
-        price: newPrice,
-      }
+    const preview: { [key: string]: number } = {}
+
+    properties.forEach((property) => {
+      preview[property.id] = property.price * (1 + percentValue / 100)
     })
 
-    saveProperties(updatedProperties)
-
-    toast({
-      title: "Prices updated",
-      description: `Property prices have been increased by ${percentValue}%.`,
-    })
+    setPercentagePreview(preview)
   }
 
-  const handlePricePerSqftUpdate = () => {
+  const handlePercentageIncrease = () => {
+    if (Object.keys(percentagePreview).length === 0) {
+      calculatePercentagePreview()
+      return
+    }
+
+    const updatedProperties = properties.map((property) => ({
+      ...property,
+      price: percentagePreview[property.id] || property.price,
+    }))
+
+    saveProperties(updatedProperties)
+  }
+
+  const calculatePricePerSqftPreview = () => {
     if (!pricePerSqft || isNaN(Number(pricePerSqft))) {
       toast({
         title: "Invalid input",
@@ -99,25 +121,30 @@ export default function PriceManagementClient() {
     }
 
     const pricePerSqftValue = Number(pricePerSqft)
-    const updatedProperties = properties.map((property) => {
-      const oldPrice = property.price
-      const newPrice = property.totalArea * pricePerSqftValue
-      const percentageChange = ((newPrice - oldPrice) / oldPrice) * 100
-      return {
-        ...property,
-        price: newPrice,
-      }
+    const preview: { [key: string]: number } = {}
+
+    properties.forEach((property) => {
+      preview[property.id] = property.totalArea * pricePerSqftValue
     })
 
-    saveProperties(updatedProperties)
-
-    toast({
-      title: "Prices updated",
-      description: `Property prices have been recalculated based on ${pricePerSqftValue} AED per sqft.`,
-    })
+    setPricePerSqftPreview(preview)
   }
 
-  const handleViewBasedIncrease = () => {
+  const handlePricePerSqftUpdate = () => {
+    if (Object.keys(pricePerSqftPreview).length === 0) {
+      calculatePricePerSqftPreview()
+      return
+    }
+
+    const updatedProperties = properties.map((property) => ({
+      ...property,
+      price: pricePerSqftPreview[property.id] || property.price,
+    }))
+
+    saveProperties(updatedProperties)
+  }
+
+  const calculateViewBasedPreview = () => {
     if (!seaViewIncrement || isNaN(Number(seaViewIncrement))) {
       toast({
         title: "Invalid input",
@@ -128,15 +155,32 @@ export default function PriceManagementClient() {
     }
 
     const incrementValue = Number(seaViewIncrement)
+    const preview: { [key: string]: number } = {}
+
+    properties.forEach((property) => {
+      preview[property.id] = property.view?.toLowerCase().includes("sea")
+        ? property.price + incrementValue
+        : property.price
+    })
+
+    setViewBasedPreview(preview)
+  }
+
+  const handleViewBasedIncrease = () => {
+    if (Object.keys(viewBasedPreview).length === 0) {
+      calculateViewBasedPreview()
+      return
+    }
+
     const updatedProperties = properties.map((property) => ({
       ...property,
-      price: property.view?.toLowerCase().includes("sea") ? property.price + incrementValue : property.price,
+      price: viewBasedPreview[property.id] || property.price,
     }))
 
     saveProperties(updatedProperties)
   }
 
-  const handleBedroomBasedUpdate = () => {
+  const calculateBedroomBasedPreview = () => {
     if (!bedroomIncrement || isNaN(Number(bedroomIncrement))) {
       toast({
         title: "Invalid input",
@@ -147,15 +191,32 @@ export default function PriceManagementClient() {
     }
 
     const incrementValue = Number(bedroomIncrement)
+    const selectedBedroomCount = Number(selectedBedroom)
+    const preview: { [key: string]: number } = {}
+
+    properties.forEach((property) => {
+      preview[property.id] =
+        property.bedrooms === selectedBedroomCount ? property.price + incrementValue : property.price
+    })
+
+    setBedroomBasedPreview(preview)
+  }
+
+  const handleBedroomBasedUpdate = () => {
+    if (Object.keys(bedroomBasedPreview).length === 0) {
+      calculateBedroomBasedPreview()
+      return
+    }
+
     const updatedProperties = properties.map((property) => ({
       ...property,
-      price: property.bedrooms === 2 ? property.price + incrementValue : property.price,
+      price: bedroomBasedPreview[property.id] || property.price,
     }))
 
     saveProperties(updatedProperties)
   }
 
-  const handleBulkDecrease = () => {
+  const calculateBulkDecreasePreview = () => {
     if (!bulkDecreaseAmount || isNaN(Number(bulkDecreaseAmount))) {
       toast({
         title: "Invalid input",
@@ -177,15 +238,28 @@ export default function PriceManagementClient() {
       return
     }
 
-    const updatedProperties = properties.map((property) => {
-      if (!property.selected) return property
+    const preview: { [key: string]: number } = {}
 
-      return {
-        ...property,
-        price:
-          bulkDecreaseType === "fixed" ? property.price - decreaseValue : property.price * (1 - decreaseValue / 100),
+    properties.forEach((property) => {
+      if (property.selected) {
+        preview[property.id] =
+          bulkDecreaseType === "fixed" ? property.price - decreaseValue : property.price * (1 - decreaseValue / 100)
       }
     })
+
+    setBulkDecreasePreview(preview)
+  }
+
+  const handleBulkDecrease = () => {
+    if (Object.keys(bulkDecreasePreview).length === 0) {
+      calculateBulkDecreasePreview()
+      return
+    }
+
+    const updatedProperties = properties.map((property) => ({
+      ...property,
+      price: bulkDecreasePreview[property.id] || property.price,
+    }))
 
     saveProperties(updatedProperties)
   }
@@ -194,6 +268,8 @@ export default function PriceManagementClient() {
     setProperties(
       properties.map((property) => (property.id === id ? { ...property, selected: !property.selected } : property)),
     )
+    // Clear bulk decrease preview when selection changes
+    setBulkDecreasePreview({})
   }
 
   const handleUnitPriceAdjustment = () => {
@@ -295,281 +371,435 @@ export default function PriceManagementClient() {
     }
   }
 
+  // Get unique bedroom counts
+  const uniqueBedrooms = Array.from(new Set(properties.map((p) => p.bedrooms))).sort()
+
   return (
     <div className="container mx-auto py-6">
       <h1 className="text-3xl font-bold mb-6">Price Management</h1>
       <p className="text-muted-foreground mb-8">Adjust prices for available properties</p>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6">
+        {/* Unit-Specific Price Adjustment - Now first */}
         <Card>
           <CardHeader>
-            <CardTitle>Percentage-Based Price Increase</CardTitle>
-            <CardDescription>Increase prices of selected units by a percentage</CardDescription>
+            <CardTitle>Unit-Specific Price Adjustment</CardTitle>
+            <CardDescription>Adjust price for a specific unit by unit number</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col space-y-4">
-              <div>
-                <Label htmlFor="percentage">Percentage (+%)</Label>
-                <Input
-                  id="percentage"
-                  placeholder="e.g., 5"
-                  value={percentage}
-                  onChange={(e) => setPercentage(e.target.value)}
-                />
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="unitSelect">Select Unit</Label>
+                <Select value={selectedUnit} onValueChange={handleUnitSelection}>
+                  <SelectTrigger id="unitSelect">
+                    <SelectValue placeholder="Select a unit" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {properties
+                      .filter((p) => p.status !== "Sold")
+                      .sort((a, b) => a.unitNumber.localeCompare(b.unitNumber))
+                      .map((property) => (
+                        <SelectItem key={property.id} value={property.unitNumber}>
+                          {property.unitNumber} - {property.bedrooms} BR - AED {property.price.toLocaleString()}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <Button onClick={handlePercentageIncrease}>Apply Increase</Button>
-            </div>
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Price Adjustment per Sqft</CardTitle>
-            <CardDescription>Modify total price based on updated price per square foot</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col space-y-4">
-              <div>
-                <Label htmlFor="pricePerSqft">New Price per Sqft</Label>
-                <Input
-                  id="pricePerSqft"
-                  placeholder="e.g., 2500"
-                  value={pricePerSqft}
-                  onChange={(e) => setPricePerSqft(e.target.value)}
-                />
-              </div>
-              <Button onClick={handlePricePerSqftUpdate}>Recalculate Price</Button>
-            </div>
-          </CardContent>
-        </Card>
+              <Tabs defaultValue="fixed" className="mb-6">
+                <TabsList className="grid grid-cols-3">
+                  <TabsTrigger value="fixed" onClick={() => setUnitIncreaseType("fixed")}>
+                    Fixed Amount
+                  </TabsTrigger>
+                  <TabsTrigger value="percentage" onClick={() => setUnitIncreaseType("percentage")}>
+                    Percentage
+                  </TabsTrigger>
+                  <TabsTrigger value="sqft" onClick={() => setUnitIncreaseType("sqft")}>
+                    Price per Sqft
+                  </TabsTrigger>
+                </TabsList>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>View-Based Price Increase</CardTitle>
-            <CardDescription>Apply a price increment based on unit view types</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col space-y-4">
-              <div>
-                <Label htmlFor="seaViewIncrement">Sea View Increment (AED)</Label>
-                <Input
-                  id="seaViewIncrement"
-                  placeholder="e.g., 50000"
-                  value={seaViewIncrement}
-                  onChange={(e) => setSeaViewIncrement(e.target.value)}
-                />
-              </div>
-              <Button onClick={handleViewBasedIncrease}>Apply Increment</Button>
-            </div>
-          </CardContent>
-        </Card>
+                <TabsContent value="fixed">
+                  <div className="flex flex-col space-y-4 mt-4">
+                    <div>
+                      <Label htmlFor="unitPriceIncrease">Increase Amount (AED)</Label>
+                      <Input
+                        id="unitPriceIncrease"
+                        placeholder="e.g., 80000"
+                        value={unitPriceIncrease}
+                        onChange={(e) => setUnitPriceIncrease(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </TabsContent>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Bedroom-Based Price Update</CardTitle>
-            <CardDescription>Adjust prices by bedroom count</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col space-y-4">
-              <div>
-                <Label htmlFor="bedroomIncrement">2-Bed Unit Increment (AED)</Label>
-                <Input
-                  id="bedroomIncrement"
-                  placeholder="e.g., 20000"
-                  value={bedroomIncrement}
-                  onChange={(e) => setBedroomIncrement(e.target.value)}
-                />
-              </div>
-              <Button onClick={handleBedroomBasedUpdate}>Apply Update</Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                <TabsContent value="percentage">
+                  <div className="flex flex-col space-y-4 mt-4">
+                    <div>
+                      <Label htmlFor="unitPercentageIncrease">Increase Percentage (%)</Label>
+                      <Input
+                        id="unitPercentageIncrease"
+                        placeholder="e.g., 5"
+                        value={unitPercentageIncrease}
+                        onChange={(e) => setUnitPercentageIncrease(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </TabsContent>
 
-      <Card className="mt-8">
-        <CardHeader>
-          <CardTitle>Bulk Price Decrease</CardTitle>
-          <CardDescription>Select multiple units to apply a fixed or percentage decrease</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="fixed" className="mb-6">
-            <TabsList>
-              <TabsTrigger value="fixed" onClick={() => setBulkDecreaseType("fixed")}>
-                Fixed Amount
-              </TabsTrigger>
-              <TabsTrigger value="percentage" onClick={() => setBulkDecreaseType("percentage")}>
-                Percentage
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="fixed">
-              <div className="flex flex-col space-y-4 mt-4">
-                <div>
-                  <Label htmlFor="fixedDecrease">Decrease Amount (AED)</Label>
-                  <Input
-                    id="fixedDecrease"
-                    placeholder="e.g., 10000"
-                    value={bulkDecreaseAmount}
-                    onChange={(e) => setBulkDecreaseAmount(e.target.value)}
-                  />
+                <TabsContent value="sqft">
+                  <div className="flex flex-col space-y-4 mt-4">
+                    <div>
+                      <Label htmlFor="newPricePerSqft">New Price per Sqft (AED)</Label>
+                      <Input
+                        id="newPricePerSqft"
+                        placeholder="e.g., 2500"
+                        value={newPricePerSqft}
+                        onChange={(e) => setNewPricePerSqft(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
+
+              {selectedUnit && (
+                <div className="bg-muted p-4 rounded-md space-y-2 text-sm">
+                  <p>
+                    <strong>Current Price:</strong> AED{" "}
+                    {properties.find((p) => p.unitNumber === selectedUnit)?.price.toLocaleString() || "N/A"}
+                  </p>
+                  <p>
+                    <strong>Current Price/Sqft:</strong> AED{" "}
+                    {(
+                      (properties.find((p) => p.unitNumber === selectedUnit)?.price || 0) /
+                      (properties.find((p) => p.unitNumber === selectedUnit)?.totalArea || 1)
+                    ).toFixed(2) || "N/A"}
+                  </p>
+
+                  {calculatedPrice !== null && (
+                    <>
+                      <p>
+                        <strong>New Price:</strong> AED {calculatedPrice.toLocaleString()}
+                      </p>
+                      <p>
+                        <strong>Price Change:</strong>{" "}
+                        {calculatedPercentage !== null ? calculatedPercentage.toFixed(2) : "0"}%
+                      </p>
+                      <p>
+                        <strong>New Price/Sqft:</strong> AED{" "}
+                        {calculatedPricePerSqft !== null ? calculatedPricePerSqft.toFixed(2) : "0"}
+                      </p>
+                    </>
+                  )}
                 </div>
-              </div>
-            </TabsContent>
-            <TabsContent value="percentage">
-              <div className="flex flex-col space-y-4 mt-4">
+              )}
+
+              <Button onClick={handleUnitPriceAdjustment} disabled={!selectedUnit}>
+                Apply Price Change
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Percentage-Based Price Increase</CardTitle>
+              <CardDescription>Increase prices of all units by a percentage</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col space-y-4">
                 <div>
-                  <Label htmlFor="percentageDecrease">Decrease Percentage (%)</Label>
+                  <Label htmlFor="percentage">Percentage (+%)</Label>
                   <Input
-                    id="percentageDecrease"
+                    id="percentage"
                     placeholder="e.g., 5"
-                    value={bulkDecreaseAmount}
-                    onChange={(e) => setBulkDecreaseAmount(e.target.value)}
+                    value={percentage}
+                    onChange={(e) => {
+                      setPercentage(e.target.value)
+                      setPercentagePreview({})
+                    }}
                   />
                 </div>
+                <Button onClick={handlePercentageIncrease}>
+                  {Object.keys(percentagePreview).length === 0 ? "Preview Changes" : "Apply Increase"}
+                </Button>
+
+                {Object.keys(percentagePreview).length > 0 && (
+                  <div className="mt-4 p-3 bg-muted rounded-md">
+                    <p className="font-medium mb-2">Preview of changes:</p>
+                    <div className="max-h-40 overflow-y-auto space-y-1">
+                      {properties.slice(0, 5).map((property) => (
+                        <div key={property.id} className="flex justify-between text-sm">
+                          <span>Unit {property.unitNumber}:</span>
+                          <div>
+                            <span className="line-through mr-2">AED {property.price.toLocaleString()}</span>
+                            <Badge variant="outline" className="bg-green-50">
+                              AED {percentagePreview[property.id]?.toLocaleString()}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                      {properties.length > 5 && (
+                        <p className="text-xs text-muted-foreground">+ {properties.length - 5} more units</p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
-            </TabsContent>
-          </Tabs>
+            </CardContent>
+          </Card>
 
-          <div className="border rounded-md p-4 mb-4">
-            <h3 className="font-medium mb-2">Select Properties</h3>
-            <div className="space-y-2 max-h-60 overflow-y-auto">
-              {properties.map((property) => (
-                <div key={property.id} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`property-${property.id}`}
-                    checked={property.selected}
-                    onCheckedChange={() => togglePropertySelection(property.id)}
+          <Card>
+            <CardHeader>
+              <CardTitle>Price Adjustment per Sqft</CardTitle>
+              <CardDescription>Modify total price based on updated price per square foot</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col space-y-4">
+                <div>
+                  <Label htmlFor="pricePerSqft">New Price per Sqft</Label>
+                  <Input
+                    id="pricePerSqft"
+                    placeholder="e.g., 2500"
+                    value={pricePerSqft}
+                    onChange={(e) => {
+                      setPricePerSqft(e.target.value)
+                      setPricePerSqftPreview({})
+                    }}
                   />
-                  <Label htmlFor={`property-${property.id}`} className="flex-1">
-                    {property.name} - {property.bedrooms} BR - AED {property.price.toLocaleString()}
-                  </Label>
                 </div>
-              ))}
-              {properties.length === 0 && <p className="text-muted-foreground">No properties available</p>}
-            </div>
-          </div>
+                <Button onClick={handlePricePerSqftUpdate}>
+                  {Object.keys(pricePerSqftPreview).length === 0 ? "Preview Changes" : "Recalculate Price"}
+                </Button>
 
-          <Button onClick={handleBulkDecrease}>Apply Decrease</Button>
-        </CardContent>
-      </Card>
+                {Object.keys(pricePerSqftPreview).length > 0 && (
+                  <div className="mt-4 p-3 bg-muted rounded-md">
+                    <p className="font-medium mb-2">Preview of changes:</p>
+                    <div className="max-h-40 overflow-y-auto space-y-1">
+                      {properties.slice(0, 5).map((property) => (
+                        <div key={property.id} className="flex justify-between text-sm">
+                          <span>Unit {property.unitNumber}:</span>
+                          <div>
+                            <span className="line-through mr-2">AED {property.price.toLocaleString()}</span>
+                            <Badge variant="outline" className="bg-green-50">
+                              AED {pricePerSqftPreview[property.id]?.toLocaleString()}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                      {properties.length > 5 && (
+                        <p className="text-xs text-muted-foreground">+ {properties.length - 5} more units</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
-      <Card className="mt-8">
-        <CardHeader>
-          <CardTitle>Unit-Specific Price Adjustment</CardTitle>
-          <CardDescription>Adjust price for a specific unit by unit number</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="unitSelect">Select Unit</Label>
-              <Select value={selectedUnit} onValueChange={handleUnitSelection}>
-                <SelectTrigger id="unitSelect">
-                  <SelectValue placeholder="Select a unit" />
-                </SelectTrigger>
-                <SelectContent>
-                  {properties
-                    .filter((p) => p.status !== "Sold")
-                    .sort((a, b) => a.unitNumber.localeCompare(b.unitNumber))
-                    .map((property) => (
-                      <SelectItem key={property.id} value={property.unitNumber}>
-                        {property.unitNumber} - {property.price.toLocaleString()}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>View-Based Price Increase</CardTitle>
+              <CardDescription>Apply a price increment based on unit view types</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col space-y-4">
+                <div>
+                  <Label htmlFor="seaViewIncrement">Sea View Increment (AED)</Label>
+                  <Input
+                    id="seaViewIncrement"
+                    placeholder="e.g., 50000"
+                    value={seaViewIncrement}
+                    onChange={(e) => {
+                      setSeaViewIncrement(e.target.value)
+                      setViewBasedPreview({})
+                    }}
+                  />
+                </div>
+                <Button onClick={handleViewBasedIncrease}>
+                  {Object.keys(viewBasedPreview).length === 0 ? "Preview Changes" : "Apply Increment"}
+                </Button>
 
+                {Object.keys(viewBasedPreview).length > 0 && (
+                  <div className="mt-4 p-3 bg-muted rounded-md">
+                    <p className="font-medium mb-2">Preview of changes:</p>
+                    <div className="max-h-40 overflow-y-auto space-y-1">
+                      {properties
+                        .filter((p) => p.view?.toLowerCase().includes("sea"))
+                        .slice(0, 5)
+                        .map((property) => (
+                          <div key={property.id} className="flex justify-between text-sm">
+                            <span>Unit {property.unitNumber}:</span>
+                            <div>
+                              <span className="line-through mr-2">AED {property.price.toLocaleString()}</span>
+                              <Badge variant="outline" className="bg-green-50">
+                                AED {viewBasedPreview[property.id]?.toLocaleString()}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      {properties.filter((p) => p.view?.toLowerCase().includes("sea")).length > 5 && (
+                        <p className="text-xs text-muted-foreground">
+                          + {properties.filter((p) => p.view?.toLowerCase().includes("sea")).length - 5} more units
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Bedroom-Based Price Update</CardTitle>
+              <CardDescription>Adjust prices by bedroom count</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="bedroomSelect">Select Bedroom Count</Label>
+                  <Select value={selectedBedroom} onValueChange={setSelectedBedroom}>
+                    <SelectTrigger id="bedroomSelect">
+                      <SelectValue placeholder="Select bedroom count" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {uniqueBedrooms.map((bedroom) => (
+                        <SelectItem key={bedroom} value={bedroom.toString()}>
+                          {bedroom} Bedroom
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="bedroomIncrement">Price Increment (AED)</Label>
+                  <Input
+                    id="bedroomIncrement"
+                    placeholder="e.g., 20000"
+                    value={bedroomIncrement}
+                    onChange={(e) => {
+                      setBedroomIncrement(e.target.value)
+                      setBedroomBasedPreview({})
+                    }}
+                  />
+                </div>
+                <Button onClick={handleBedroomBasedUpdate}>
+                  {Object.keys(bedroomBasedPreview).length === 0 ? "Preview Changes" : "Apply Update"}
+                </Button>
+
+                {Object.keys(bedroomBasedPreview).length > 0 && (
+                  <div className="mt-4 p-3 bg-muted rounded-md">
+                    <p className="font-medium mb-2">Preview of changes:</p>
+                    <div className="max-h-40 overflow-y-auto space-y-1">
+                      {properties
+                        .filter((p) => p.bedrooms === Number(selectedBedroom))
+                        .slice(0, 5)
+                        .map((property) => (
+                          <div key={property.id} className="flex justify-between text-sm">
+                            <span>Unit {property.unitNumber}:</span>
+                            <div>
+                              <span className="line-through mr-2">AED {property.price.toLocaleString()}</span>
+                              <Badge variant="outline" className="bg-green-50">
+                                AED {bedroomBasedPreview[property.id]?.toLocaleString()}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      {properties.filter((p) => p.bedrooms === Number(selectedBedroom)).length > 5 && (
+                        <p className="text-xs text-muted-foreground">
+                          + {properties.filter((p) => p.bedrooms === Number(selectedBedroom)).length - 5} more units
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Bulk Price Decrease</CardTitle>
+            <CardDescription>Select multiple units to apply a fixed or percentage decrease</CardDescription>
+          </CardHeader>
+          <CardContent>
             <Tabs defaultValue="fixed" className="mb-6">
-              <TabsList className="grid grid-cols-3">
-                <TabsTrigger value="fixed" onClick={() => setUnitIncreaseType("fixed")}>
+              <TabsList>
+                <TabsTrigger value="fixed" onClick={() => setBulkDecreaseType("fixed")}>
                   Fixed Amount
                 </TabsTrigger>
-                <TabsTrigger value="percentage" onClick={() => setUnitIncreaseType("percentage")}>
+                <TabsTrigger value="percentage" onClick={() => setBulkDecreaseType("percentage")}>
                   Percentage
                 </TabsTrigger>
-                <TabsTrigger value="sqft" onClick={() => setUnitIncreaseType("sqft")}>
-                  Price per Sqft
-                </TabsTrigger>
               </TabsList>
-
               <TabsContent value="fixed">
                 <div className="flex flex-col space-y-4 mt-4">
                   <div>
-                    <Label htmlFor="unitPriceIncrease">Increase Amount (AED)</Label>
+                    <Label htmlFor="fixedDecrease">Decrease Amount (AED)</Label>
                     <Input
-                      id="unitPriceIncrease"
-                      placeholder="e.g., 80000"
-                      value={unitPriceIncrease}
-                      onChange={(e) => setUnitPriceIncrease(e.target.value)}
+                      id="fixedDecrease"
+                      placeholder="e.g., 10000"
+                      value={bulkDecreaseAmount}
+                      onChange={(e) => {
+                        setBulkDecreaseAmount(e.target.value)
+                        setBulkDecreasePreview({})
+                      }}
                     />
                   </div>
                 </div>
               </TabsContent>
-
               <TabsContent value="percentage">
                 <div className="flex flex-col space-y-4 mt-4">
                   <div>
-                    <Label htmlFor="unitPercentageIncrease">Increase Percentage (%)</Label>
+                    <Label htmlFor="percentageDecrease">Decrease Percentage (%)</Label>
                     <Input
-                      id="unitPercentageIncrease"
+                      id="percentageDecrease"
                       placeholder="e.g., 5"
-                      value={unitPercentageIncrease}
-                      onChange={(e) => setUnitPercentageIncrease(e.target.value)}
-                    />
-                  </div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="sqft">
-                <div className="flex flex-col space-y-4 mt-4">
-                  <div>
-                    <Label htmlFor="newPricePerSqft">New Price per Sqft (AED)</Label>
-                    <Input
-                      id="newPricePerSqft"
-                      placeholder="e.g., 2500"
-                      value={newPricePerSqft}
-                      onChange={(e) => setNewPricePerSqft(e.target.value)}
+                      value={bulkDecreaseAmount}
+                      onChange={(e) => {
+                        setBulkDecreaseAmount(e.target.value)
+                        setBulkDecreasePreview({})
+                      }}
                     />
                   </div>
                 </div>
               </TabsContent>
             </Tabs>
 
-            {selectedUnit && (
-              <div className="bg-muted p-4 rounded-md space-y-2 text-sm">
-                <p>
-                  <strong>Current Price:</strong> AED{" "}
-                  {properties.find((p) => p.unitNumber === selectedUnit)?.price.toLocaleString() || "N/A"}
-                </p>
-                <p>
-                  <strong>Current Price/Sqft:</strong> AED{" "}
-                  {(properties.find((p) => p.unitNumber === selectedUnit)?.price || 0) /
-                    (properties.find((p) => p.unitNumber === selectedUnit)?.totalArea || 1) || "N/A"}
-                </p>
-
-                {calculatedPrice !== null && (
-                  <>
-                    <p>
-                      <strong>New Price:</strong> AED {calculatedPrice.toLocaleString()}
-                    </p>
-                    <p>
-                      <strong>Price Change:</strong>{" "}
-                      {calculatedPercentage !== null ? calculatedPercentage.toFixed(2) : "0"}%
-                    </p>
-                    <p>
-                      <strong>New Price/Sqft:</strong> AED{" "}
-                      {calculatedPricePerSqft !== null ? calculatedPricePerSqft.toFixed(2) : "0"}
-                    </p>
-                  </>
-                )}
+            <div className="border rounded-md p-4 mb-4">
+              <h3 className="font-medium mb-2">Select Properties</h3>
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {properties.map((property) => (
+                  <div key={property.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`property-${property.id}`}
+                      checked={property.selected}
+                      onCheckedChange={() => togglePropertySelection(property.id)}
+                    />
+                    <Label htmlFor={`property-${property.id}`} className="flex-1">
+                      {property.unitNumber} - {property.bedrooms} BR - AED {property.price.toLocaleString()}
+                      {bulkDecreasePreview[property.id] && (
+                        <Badge variant="outline" className="ml-2 bg-red-50">
+                          → AED {bulkDecreasePreview[property.id].toLocaleString()}
+                        </Badge>
+                      )}
+                    </Label>
+                  </div>
+                ))}
+                {properties.length === 0 && <p className="text-muted-foreground">No properties available</p>}
               </div>
-            )}
+            </div>
 
-            <Button onClick={handleUnitPriceAdjustment} disabled={!selectedUnit}>
-              Apply Price Change
+            <Button onClick={handleBulkDecrease}>
+              {Object.keys(bulkDecreasePreview).length === 0 ? "Preview Changes" : "Apply Decrease"}
             </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
