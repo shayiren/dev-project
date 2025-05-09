@@ -595,11 +595,6 @@ export default function PriceManagementClient() {
                         "N/A"}
                     </p>
 
-                    <p>
-                      <strong>Current Price:</strong> AED{" "}
-                      {properties.find((p) => p.unitNumber === selectedUnit)?.price.toLocaleString() || "N/A"}
-                    </p>
-
                     {calculatedPrice !== null && (
                       <p>
                         <strong>New Price:</strong> AED {calculatedPrice.toLocaleString()}
