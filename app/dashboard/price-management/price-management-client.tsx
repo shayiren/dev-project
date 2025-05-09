@@ -395,14 +395,9 @@ export default function PriceManagementClient() {
     // Find the selected property
     const selectedProperty = properties.find((p) => p.unitNumber === unitNumber)
     if (selectedProperty) {
-      // Calculate old price per sqft based on original price
-      const originalPricePerSqft =
-        (selectedProperty.originalPrice || selectedProperty.price) / selectedProperty.totalArea
-      setOldPricePerSqft(originalPricePerSqft)
-
-      // Calculate current price per sqft for reference
+      // Calculate old price per sqft based on current price (not original)
       const currentPricePerSqft = selectedProperty.price / selectedProperty.totalArea
-      setCalculatedPricePerSqft(currentPricePerSqft)
+      setOldPricePerSqft(currentPricePerSqft)
     }
   }
 
@@ -596,9 +591,7 @@ export default function PriceManagementClient() {
                   <div className="bg-muted p-3 rounded-md space-y-1 text-sm">
                     <p>
                       <strong>Old Price:</strong> AED{" "}
-                      {properties.find((p) => p.unitNumber === selectedUnit)?.originalPrice?.toLocaleString() ||
-                        properties.find((p) => p.unitNumber === selectedUnit)?.price.toLocaleString() ||
-                        "N/A"}
+                      {properties.find((p) => p.unitNumber === selectedUnit)?.price.toLocaleString() || "N/A"}
                     </p>
 
                     {calculatedPrice !== null && (
@@ -618,9 +611,8 @@ export default function PriceManagementClient() {
                       {oldPricePerSqft !== null
                         ? oldPricePerSqft.toFixed(2)
                         : (
-                            (properties.find((p) => p.unitNumber === selectedUnit)?.originalPrice ||
-                              properties.find((p) => p.unitNumber === selectedUnit)?.price ||
-                              0) / (properties.find((p) => p.unitNumber === selectedUnit)?.totalArea || 1)
+                            (properties.find((p) => p.unitNumber === selectedUnit)?.price || 0) /
+                            (properties.find((p) => p.unitNumber === selectedUnit)?.totalArea || 1)
                           ).toFixed(2)}
                     </p>
 
