@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
 import { getLocalStorage, setLocalStorage } from "@/utils/storage-utils"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface Property {
   id: string
@@ -18,6 +19,9 @@ interface Property {
   bedrooms: number
   view?: string
   selected?: boolean
+  unitNumber: string
+  totalArea: number
+  status?: string
 }
 
 export default function PriceManagementClient() {
@@ -29,6 +33,15 @@ export default function PriceManagementClient() {
   const [bulkDecreaseAmount, setBulkDecreaseAmount] = useState("")
   const [bulkDecreaseType, setBulkDecreaseType] = useState<"fixed" | "percentage">("fixed")
   const { toast } = useToast()
+
+  const [selectedUnit, setSelectedUnit] = useState<string>("")
+  const [unitPriceIncrease, setUnitPriceIncrease] = useState("")
+  const [unitPercentageIncrease, setUnitPercentageIncrease] = useState("")
+  const [newPricePerSqft, setNewPricePerSqft] = useState("")
+  const [unitIncreaseType, setUnitIncreaseType] = useState<"fixed" | "percentage" | "sqft">("fixed")
+  const [calculatedPercentage, setCalculatedPercentage] = useState<number | null>(null)
+  const [calculatedPrice, setCalculatedPrice] = useState<number | null>(null)
+  const [calculatedPricePerSqft, setCalculatedPricePerSqft] = useState<number | null>(null)
 
   useEffect(() => {
     const loadedProperties = getLocalStorage("properties", [])
@@ -58,12 +71,21 @@ export default function PriceManagementClient() {
     }
 
     const percentValue = Number(percentage)
-    const updatedProperties = properties.map((property) => ({
-      ...property,
-      price: property.price * (1 + percentValue / 100),
-    }))
+    const updatedProperties = properties.map((property) => {
+      const newPrice = property.price * (1 + percentValue / 100)
+      const newPricePerSqft = newPrice / property.totalArea
+      return {
+        ...property,
+        price: newPrice,
+      }
+    })
 
     saveProperties(updatedProperties)
+
+    toast({
+      title: "Prices updated",
+      description: `Property prices have been increased by ${percentValue}%.`,
+    })
   }
 
   const handlePricePerSqftUpdate = () => {
@@ -77,12 +99,22 @@ export default function PriceManagementClient() {
     }
 
     const pricePerSqftValue = Number(pricePerSqft)
-    const updatedProperties = properties.map((property) => ({
-      ...property,
-      price: property.sqft * pricePerSqftValue,
-    }))
+    const updatedProperties = properties.map((property) => {
+      const oldPrice = property.price
+      const newPrice = property.totalArea * pricePerSqftValue
+      const percentageChange = ((newPrice - oldPrice) / oldPrice) * 100
+      return {
+        ...property,
+        price: newPrice,
+      }
+    })
 
     saveProperties(updatedProperties)
+
+    toast({
+      title: "Prices updated",
+      description: `Property prices have been recalculated based on ${pricePerSqftValue} AED per sqft.`,
+    })
   }
 
   const handleViewBasedIncrease = () => {
@@ -162,6 +194,105 @@ export default function PriceManagementClient() {
     setProperties(
       properties.map((property) => (property.id === id ? { ...property, selected: !property.selected } : property)),
     )
+  }
+
+  const handleUnitPriceAdjustment = () => {
+    if (!selectedUnit) {
+      toast({
+        title: "No unit selected",
+        description: "Please select a unit to adjust its price.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const selectedProperty = properties.find((p) => p.unitNumber === selectedUnit)
+    if (!selectedProperty) {
+      toast({
+        title: "Unit not found",
+        description: `Could not find unit ${selectedUnit}.`,
+        variant: "destructive",
+      })
+      return
+    }
+
+    let newPrice = selectedProperty.price
+    let percentageChange = 0
+
+    if (unitIncreaseType === "fixed") {
+      if (!unitPriceIncrease || isNaN(Number(unitPriceIncrease))) {
+        toast({
+          title: "Invalid input",
+          description: "Please enter a valid price increase amount.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const increaseAmount = Number(unitPriceIncrease)
+      newPrice = selectedProperty.price + increaseAmount
+      percentageChange = (increaseAmount / selectedProperty.price) * 100
+    } else if (unitIncreaseType === "percentage") {
+      if (!unitPercentageIncrease || isNaN(Number(unitPercentageIncrease))) {
+        toast({
+          title: "Invalid input",
+          description: "Please enter a valid percentage value.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const percentValue = Number(unitPercentageIncrease)
+      newPrice = selectedProperty.price * (1 + percentValue / 100)
+      percentageChange = percentValue
+    } else if (unitIncreaseType === "sqft") {
+      if (!newPricePerSqft || isNaN(Number(newPricePerSqft))) {
+        toast({
+          title: "Invalid input",
+          description: "Please enter a valid price per square foot.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const pricePerSqftValue = Number(newPricePerSqft)
+      const oldPrice = selectedProperty.price
+      newPrice = selectedProperty.totalArea * pricePerSqftValue
+      percentageChange = ((newPrice - oldPrice) / oldPrice) * 100
+    }
+
+    const updatedProperties = properties.map((property) =>
+      property.unitNumber === selectedUnit ? { ...property, price: newPrice } : property,
+    )
+
+    saveProperties(updatedProperties)
+
+    // Update calculated values for display
+    setCalculatedPercentage(percentageChange)
+    setCalculatedPrice(newPrice)
+    setCalculatedPricePerSqft(newPrice / selectedProperty.totalArea)
+
+    toast({
+      title: "Price updated",
+      description: `Unit ${selectedUnit} price has been updated to ${newPrice.toLocaleString()}.`,
+    })
+  }
+
+  const handleUnitSelection = (unitNumber: string) => {
+    setSelectedUnit(unitNumber)
+
+    // Reset calculated values
+    setCalculatedPercentage(null)
+    setCalculatedPrice(null)
+    setCalculatedPricePerSqft(null)
+
+    // Find the selected property
+    const selectedProperty = properties.find((p) => p.unitNumber === unitNumber)
+    if (selectedProperty) {
+      // Pre-calculate price per sqft for reference
+      const currentPricePerSqft = selectedProperty.price / selectedProperty.totalArea
+      setCalculatedPricePerSqft(currentPricePerSqft)
+    }
   }
 
   return (
@@ -318,6 +449,125 @@ export default function PriceManagementClient() {
           </div>
 
           <Button onClick={handleBulkDecrease}>Apply Decrease</Button>
+        </CardContent>
+      </Card>
+
+      <Card className="mt-8">
+        <CardHeader>
+          <CardTitle>Unit-Specific Price Adjustment</CardTitle>
+          <CardDescription>Adjust price for a specific unit by unit number</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="unitSelect">Select Unit</Label>
+              <Select value={selectedUnit} onValueChange={handleUnitSelection}>
+                <SelectTrigger id="unitSelect">
+                  <SelectValue placeholder="Select a unit" />
+                </SelectTrigger>
+                <SelectContent>
+                  {properties
+                    .filter((p) => p.status !== "Sold")
+                    .sort((a, b) => a.unitNumber.localeCompare(b.unitNumber))
+                    .map((property) => (
+                      <SelectItem key={property.id} value={property.unitNumber}>
+                        {property.unitNumber} - {property.price.toLocaleString()}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Tabs defaultValue="fixed" className="mb-6">
+              <TabsList className="grid grid-cols-3">
+                <TabsTrigger value="fixed" onClick={() => setUnitIncreaseType("fixed")}>
+                  Fixed Amount
+                </TabsTrigger>
+                <TabsTrigger value="percentage" onClick={() => setUnitIncreaseType("percentage")}>
+                  Percentage
+                </TabsTrigger>
+                <TabsTrigger value="sqft" onClick={() => setUnitIncreaseType("sqft")}>
+                  Price per Sqft
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="fixed">
+                <div className="flex flex-col space-y-4 mt-4">
+                  <div>
+                    <Label htmlFor="unitPriceIncrease">Increase Amount (AED)</Label>
+                    <Input
+                      id="unitPriceIncrease"
+                      placeholder="e.g., 80000"
+                      value={unitPriceIncrease}
+                      onChange={(e) => setUnitPriceIncrease(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="percentage">
+                <div className="flex flex-col space-y-4 mt-4">
+                  <div>
+                    <Label htmlFor="unitPercentageIncrease">Increase Percentage (%)</Label>
+                    <Input
+                      id="unitPercentageIncrease"
+                      placeholder="e.g., 5"
+                      value={unitPercentageIncrease}
+                      onChange={(e) => setUnitPercentageIncrease(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="sqft">
+                <div className="flex flex-col space-y-4 mt-4">
+                  <div>
+                    <Label htmlFor="newPricePerSqft">New Price per Sqft (AED)</Label>
+                    <Input
+                      id="newPricePerSqft"
+                      placeholder="e.g., 2500"
+                      value={newPricePerSqft}
+                      onChange={(e) => setNewPricePerSqft(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+
+            {selectedUnit && (
+              <div className="bg-muted p-4 rounded-md space-y-2 text-sm">
+                <p>
+                  <strong>Current Price:</strong> AED{" "}
+                  {properties.find((p) => p.unitNumber === selectedUnit)?.price.toLocaleString() || "N/A"}
+                </p>
+                <p>
+                  <strong>Current Price/Sqft:</strong> AED{" "}
+                  {(properties.find((p) => p.unitNumber === selectedUnit)?.price || 0) /
+                    (properties.find((p) => p.unitNumber === selectedUnit)?.totalArea || 1) || "N/A"}
+                </p>
+
+                {calculatedPrice !== null && (
+                  <>
+                    <p>
+                      <strong>New Price:</strong> AED {calculatedPrice.toLocaleString()}
+                    </p>
+                    <p>
+                      <strong>Price Change:</strong>{" "}
+                      {calculatedPercentage !== null ? calculatedPercentage.toFixed(2) : "0"}%
+                    </p>
+                    <p>
+                      <strong>New Price/Sqft:</strong> AED{" "}
+                      {calculatedPricePerSqft !== null ? calculatedPricePerSqft.toFixed(2) : "0"}
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
+
+            <Button onClick={handleUnitPriceAdjustment} disabled={!selectedUnit}>
+              Apply Price Change
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
