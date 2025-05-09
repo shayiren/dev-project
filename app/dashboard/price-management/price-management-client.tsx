@@ -55,6 +55,10 @@ export default function PriceManagementClient() {
   const [openUnitCombobox, setOpenUnitCombobox] = useState(false)
   const [oldPricePerSqft, setOldPricePerSqft] = useState<number | null>(null)
 
+  // Store the original price before changes
+  const [selectedUnitOriginalPrice, setSelectedUnitOriginalPrice] = useState<number | null>(null)
+  const [priceWasUpdated, setPriceWasUpdated] = useState(false)
+
   // Series-based states
   const [seriesType, setSeriesType] = useState<"startsWith" | "endsWith">("startsWith")
   const [seriesValue, setSeriesValue] = useState<string>("")
@@ -366,16 +370,23 @@ export default function PriceManagementClient() {
       percentageChange = ((newPrice - oldPrice) / oldPrice) * 100
     }
 
-    const updatedProperties = properties.map((property) =>
-      property.unitNumber === selectedUnit ? { ...property, price: newPrice } : property,
-    )
-
-    saveProperties(updatedProperties)
+    // Store the original price before updating
+    setSelectedUnitOriginalPrice(selectedProperty.price)
 
     // Update calculated values for display
     setCalculatedPercentage(percentageChange)
     setCalculatedPrice(newPrice)
     setCalculatedPricePerSqft(newPrice / selectedProperty.totalArea)
+
+    // Mark that a price update has occurred
+    setPriceWasUpdated(true)
+
+    // Update the properties in state and storage
+    const updatedProperties = properties.map((property) =>
+      property.unitNumber === selectedUnit ? { ...property, price: newPrice } : property,
+    )
+
+    saveProperties(updatedProperties)
 
     toast({
       title: "Price updated",
@@ -391,11 +402,16 @@ export default function PriceManagementClient() {
     setCalculatedPercentage(null)
     setCalculatedPrice(null)
     setCalculatedPricePerSqft(null)
+    setPriceWasUpdated(false)
+    setSelectedUnitOriginalPrice(null)
 
     // Find the selected property
     const selectedProperty = properties.find((p) => p.unitNumber === unitNumber)
     if (selectedProperty) {
-      // Calculate old price per sqft based on current price (not original)
+      // Store the current price as the original price for this selection
+      setSelectedUnitOriginalPrice(selectedProperty.price)
+
+      // Calculate old price per sqft based on current price
       const currentPricePerSqft = selectedProperty.price / selectedProperty.totalArea
       setOldPricePerSqft(currentPricePerSqft)
     }
@@ -591,7 +607,9 @@ export default function PriceManagementClient() {
                   <div className="bg-muted p-3 rounded-md space-y-1 text-sm">
                     <p>
                       <strong>Old Price:</strong> AED{" "}
-                      {properties.find((p) => p.unitNumber === selectedUnit)?.price.toLocaleString() || "N/A"}
+                      {selectedUnitOriginalPrice?.toLocaleString() ||
+                        properties.find((p) => p.unitNumber === selectedUnit)?.price.toLocaleString() ||
+                        "N/A"}
                     </p>
 
                     {calculatedPrice !== null && (
@@ -611,8 +629,9 @@ export default function PriceManagementClient() {
                       {oldPricePerSqft !== null
                         ? oldPricePerSqft.toFixed(2)
                         : (
-                            (properties.find((p) => p.unitNumber === selectedUnit)?.price || 0) /
-                            (properties.find((p) => p.unitNumber === selectedUnit)?.totalArea || 1)
+                            (selectedUnitOriginalPrice ||
+                              properties.find((p) => p.unitNumber === selectedUnit)?.price ||
+                              0) / (properties.find((p) => p.unitNumber === selectedUnit)?.totalArea || 1)
                           ).toFixed(2)}
                     </p>
 
