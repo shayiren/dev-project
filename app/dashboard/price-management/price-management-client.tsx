@@ -53,6 +53,7 @@ export default function PriceManagementClient() {
   const [calculatedPrice, setCalculatedPrice] = useState<number | null>(null)
   const [calculatedPricePerSqft, setCalculatedPricePerSqft] = useState<number | null>(null)
   const [openUnitCombobox, setOpenUnitCombobox] = useState(false)
+  const [oldPricePerSqft, setOldPricePerSqft] = useState<number | null>(null)
 
   // Series-based states
   const [seriesType, setSeriesType] = useState<"startsWith" | "endsWith">("startsWith")
@@ -394,7 +395,12 @@ export default function PriceManagementClient() {
     // Find the selected property
     const selectedProperty = properties.find((p) => p.unitNumber === unitNumber)
     if (selectedProperty) {
-      // Pre-calculate price per sqft for reference
+      // Calculate old price per sqft based on original price
+      const originalPricePerSqft =
+        (selectedProperty.originalPrice || selectedProperty.price) / selectedProperty.totalArea
+      setOldPricePerSqft(originalPricePerSqft)
+
+      // Calculate current price per sqft for reference
       const currentPricePerSqft = selectedProperty.price / selectedProperty.totalArea
       setCalculatedPricePerSqft(currentPricePerSqft)
     }
@@ -608,11 +614,14 @@ export default function PriceManagementClient() {
                     )}
 
                     <p>
-                      <strong>Current Price/Sqft:</strong> AED{" "}
-                      {(
-                        (properties.find((p) => p.unitNumber === selectedUnit)?.price || 0) /
-                        (properties.find((p) => p.unitNumber === selectedUnit)?.totalArea || 1)
-                      ).toFixed(2) || "N/A"}
+                      <strong>Old Price Per Sqft:</strong> AED{" "}
+                      {oldPricePerSqft !== null
+                        ? oldPricePerSqft.toFixed(2)
+                        : (
+                            (properties.find((p) => p.unitNumber === selectedUnit)?.originalPrice ||
+                              properties.find((p) => p.unitNumber === selectedUnit)?.price ||
+                              0) / (properties.find((p) => p.unitNumber === selectedUnit)?.totalArea || 1)
+                          ).toFixed(2)}
                     </p>
 
                     {calculatedPricePerSqft !== null && (
