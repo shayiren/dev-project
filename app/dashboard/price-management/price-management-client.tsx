@@ -12,11 +12,16 @@ import { getLocalStorage, setLocalStorage } from "@/utils/storage-utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Check, ChevronsUpDown } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 interface Property {
   id: string
   name: string
   price: number
+  originalPrice?: number
   sqft: number
   bedrooms: number
   view?: string
@@ -47,6 +52,7 @@ export default function PriceManagementClient() {
   const [calculatedPercentage, setCalculatedPercentage] = useState<number | null>(null)
   const [calculatedPrice, setCalculatedPrice] = useState<number | null>(null)
   const [calculatedPricePerSqft, setCalculatedPricePerSqft] = useState<number | null>(null)
+  const [openUnitCombobox, setOpenUnitCombobox] = useState(false)
 
   // Series-based states
   const [seriesType, setSeriesType] = useState<"startsWith" | "endsWith">("startsWith")
@@ -64,11 +70,17 @@ export default function PriceManagementClient() {
 
   useEffect(() => {
     const loadedProperties = getLocalStorage("properties", [])
-    setProperties(loadedProperties.map((prop: Property) => ({ ...prop, selected: false })))
+    // Add originalPrice if it doesn't exist
+    const propertiesWithOriginal = loadedProperties.map((prop: Property) => ({
+      ...prop,
+      selected: false,
+      originalPrice: prop.originalPrice || prop.price,
+    }))
+    setProperties(propertiesWithOriginal)
   }, [])
 
   const saveProperties = (updatedProperties: Property[]) => {
-    // Remove the selected property before saving
+    // Remove the selected property before saving but keep originalPrice
     const propsToSave = updatedProperties.map(({ selected, ...rest }) => rest)
     setLocalStorage("properties", propsToSave)
     setProperties(updatedProperties)
@@ -372,6 +384,7 @@ export default function PriceManagementClient() {
 
   const handleUnitSelection = (unitNumber: string) => {
     setSelectedUnit(unitNumber)
+    setOpenUnitCombobox(false)
 
     // Reset calculated values
     setCalculatedPercentage(null)
@@ -478,27 +491,49 @@ export default function PriceManagementClient() {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="unitSelect">Select or Type Unit Number</Label>
-                  <div className="relative">
-                    <Input
-                      id="unitFilter"
-                      placeholder="Type to filter units..."
-                      value={unitFilter}
-                      onChange={(e) => setUnitFilter(e.target.value)}
-                      className="mb-1"
-                    />
-                    <Select value={selectedUnit} onValueChange={handleUnitSelection}>
-                      <SelectTrigger id="unitSelect" className="w-full">
-                        <SelectValue placeholder="Select a unit" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {filteredUnits.map((property) => (
-                          <SelectItem key={property.id} value={property.unitNumber}>
-                            Unit {property.unitNumber} - {property.bedrooms} BR - AED {property.price.toLocaleString()}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <Popover open={openUnitCombobox} onOpenChange={setOpenUnitCombobox}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={openUnitCombobox}
+                        className="w-full justify-between"
+                      >
+                        {selectedUnit ? `Unit ${selectedUnit}` : "Search for a unit..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0">
+                      <Command>
+                        <CommandInput
+                          placeholder="Search unit number..."
+                          value={unitFilter}
+                          onValueChange={setUnitFilter}
+                        />
+                        <CommandEmpty>No units found.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandList className="max-h-60 overflow-y-auto">
+                            {filteredUnits.map((property) => (
+                              <CommandItem
+                                key={property.id}
+                                value={property.unitNumber}
+                                onSelect={() => handleUnitSelection(property.unitNumber)}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    selectedUnit === property.unitNumber ? "opacity-100" : "opacity-0",
+                                  )}
+                                />
+                                Unit {property.unitNumber} - {property.bedrooms} BR - AED{" "}
+                                {property.price.toLocaleString()}
+                              </CommandItem>
+                            ))}
+                          </CommandList>
+                        </CommandGroup>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
 
                 <Tabs defaultValue="fixed" className="mb-4">
@@ -555,6 +590,13 @@ export default function PriceManagementClient() {
                   <div className="bg-muted p-3 rounded-md space-y-1 text-sm">
                     <p>
                       <strong>Old Price:</strong> AED{" "}
+                      {properties.find((p) => p.unitNumber === selectedUnit)?.originalPrice?.toLocaleString() ||
+                        properties.find((p) => p.unitNumber === selectedUnit)?.price.toLocaleString() ||
+                        "N/A"}
+                    </p>
+
+                    <p>
+                      <strong>Current Price:</strong> AED{" "}
                       {properties.find((p) => p.unitNumber === selectedUnit)?.price.toLocaleString() || "N/A"}
                     </p>
 
