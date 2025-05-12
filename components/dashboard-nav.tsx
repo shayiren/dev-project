@@ -1,107 +1,112 @@
 "use client"
 
+import type React from "react"
+
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { cn } from "@/lib/utils"
 import {
   BarChart3,
-  Building,
-  Building2,
   Calendar,
+  CreditCard,
   FileText,
   Home,
   MessageSquare,
+  Package,
   Settings,
   Users,
-  DollarSign,
+  Building,
   Tag,
-  Folder,
+  History,
 } from "lucide-react"
 
-interface NavProps {
-  isCollapsed: boolean
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+
+interface NavItem {
+  title: string
+  href: string
+  icon: React.ReactNode
 }
 
-export function DashboardNav({ isCollapsed }: NavProps) {
+export function DashboardNav() {
   const pathname = usePathname()
 
-  const routes = [
+  const navItems: NavItem[] = [
     {
-      href: "/dashboard",
-      icon: Home,
       title: "Dashboard",
+      href: "/dashboard",
+      icon: <Home className="mr-2 h-4 w-4" />,
     },
     {
-      href: "/dashboard/properties",
-      icon: Building,
       title: "Properties",
+      href: "/dashboard/properties",
+      icon: <Building className="mr-2 h-4 w-4" />,
     },
     {
-      href: "/dashboard/sold",
-      icon: Tag,
       title: "Sold Units",
+      href: "/dashboard/sold",
+      icon: <Tag className="mr-2 h-4 w-4" />,
     },
     {
-      href: "/dashboard/development",
-      icon: Building2,
       title: "Development",
+      href: "/dashboard/development",
+      icon: <Package className="mr-2 h-4 w-4" />,
     },
     {
-      href: "/dashboard/clients",
-      icon: Users,
       title: "Clients",
+      href: "/dashboard/clients",
+      icon: <Users className="mr-2 h-4 w-4" />,
     },
     {
-      href: "/dashboard/sales-offers",
-      icon: FileText,
       title: "Sales Offers",
+      href: "/dashboard/sales-offers",
+      icon: <CreditCard className="mr-2 h-4 w-4" />,
     },
     {
-      href: "/dashboard/price-management",
-      icon: DollarSign,
       title: "Price Management",
+      href: "/dashboard/price-management",
+      icon: <Tag className="mr-2 h-4 w-4" />,
     },
     {
-      href: "/dashboard/documents",
-      icon: Folder,
       title: "Documents",
+      href: "/dashboard/documents",
+      icon: <FileText className="mr-2 h-4 w-4" />,
     },
     {
-      href: "/dashboard/analytics",
-      icon: BarChart3,
       title: "Analytics",
+      href: "/dashboard/analytics",
+      icon: <BarChart3 className="mr-2 h-4 w-4" />,
     },
     {
-      href: "/dashboard/calendar",
-      icon: Calendar,
       title: "Calendar",
+      href: "/dashboard/calendar",
+      icon: <Calendar className="mr-2 h-4 w-4" />,
     },
     {
-      href: "/dashboard/messages",
-      icon: MessageSquare,
       title: "Messages",
+      href: "/dashboard/messages",
+      icon: <MessageSquare className="mr-2 h-4 w-4" />,
     },
     {
-      href: "/dashboard/settings",
-      icon: Settings,
+      title: "Logs",
+      href: "/dashboard/logs",
+      icon: <History className="mr-2 h-4 w-4" />,
+    },
+    {
       title: "Settings",
+      href: "/dashboard/settings",
+      icon: <Settings className="mr-2 h-4 w-4" />,
     },
   ]
 
   return (
-    <nav className="grid items-start gap-2 px-2 text-sm font-medium">
-      {routes.map((route) => (
-        <Link
-          key={route.href}
-          href={route.href}
-          className={cn(
-            "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
-            pathname === route.href && "bg-muted text-primary",
-            isCollapsed && "justify-center",
-          )}
-        >
-          <route.icon className="h-4 w-4" />
-          {!isCollapsed && <span>{route.title}</span>}
+    <nav className="grid items-start px-4 text-sm font-medium">
+      {navItems.map((item, index) => (
+        <Link key={index} href={item.href}>
+          <Button variant="ghost" className={cn("w-full justify-start", pathname === item.href && "bg-muted")}>
+            {item.icon}
+            {item.title}
+          </Button>
         </Link>
       ))}
     </nav>
