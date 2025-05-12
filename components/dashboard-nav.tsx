@@ -1,112 +1,119 @@
 "use client"
 
-import type React from "react"
-
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   BarChart3,
+  Building,
+  Building2,
   Calendar,
-  CreditCard,
+  DollarSign,
   FileText,
+  Folder,
+  History,
   Home,
   MessageSquare,
-  Package,
   Settings,
-  Users,
-  Building,
   Tag,
-  History,
+  Users,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
 
-interface NavItem {
-  title: string
-  href: string
-  icon: React.ReactNode
+interface NavProps {
+  isCollapsed?: boolean
 }
 
-export function DashboardNav() {
+export function DashboardNav({ isCollapsed }: NavProps) {
   const pathname = usePathname()
 
-  const navItems: NavItem[] = [
+  const routes = [
     {
-      title: "Dashboard",
       href: "/dashboard",
-      icon: <Home className="mr-2 h-4 w-4" />,
+      icon: Home,
+      title: "Dashboard",
     },
     {
-      title: "Properties",
       href: "/dashboard/properties",
-      icon: <Building className="mr-2 h-4 w-4" />,
+      icon: Building,
+      title: "Properties",
     },
     {
-      title: "Sold Units",
       href: "/dashboard/sold",
-      icon: <Tag className="mr-2 h-4 w-4" />,
+      icon: Tag,
+      title: "Sold Units",
     },
     {
-      title: "Development",
       href: "/dashboard/development",
-      icon: <Package className="mr-2 h-4 w-4" />,
+      icon: Building2,
+      title: "Development",
     },
     {
-      title: "Clients",
       href: "/dashboard/clients",
-      icon: <Users className="mr-2 h-4 w-4" />,
+      icon: Users,
+      title: "Clients",
     },
     {
-      title: "Sales Offers",
       href: "/dashboard/sales-offers",
-      icon: <CreditCard className="mr-2 h-4 w-4" />,
+      icon: FileText,
+      title: "Sales Offers",
     },
     {
-      title: "Price Management",
       href: "/dashboard/price-management",
-      icon: <Tag className="mr-2 h-4 w-4" />,
+      icon: DollarSign,
+      title: "Price Management",
     },
     {
-      title: "Documents",
+      href: "/dashboard/events",
+      icon: Calendar,
+      title: "Events",
+    },
+    {
       href: "/dashboard/documents",
-      icon: <FileText className="mr-2 h-4 w-4" />,
+      icon: Folder,
+      title: "Documents",
     },
     {
-      title: "Analytics",
       href: "/dashboard/analytics",
-      icon: <BarChart3 className="mr-2 h-4 w-4" />,
+      icon: BarChart3,
+      title: "Analytics",
     },
     {
-      title: "Calendar",
       href: "/dashboard/calendar",
-      icon: <Calendar className="mr-2 h-4 w-4" />,
+      icon: Calendar,
+      title: "Calendar",
     },
     {
-      title: "Messages",
-      href: "/dashboard/messages",
-      icon: <MessageSquare className="mr-2 h-4 w-4" />,
-    },
-    {
-      title: "Logs",
       href: "/dashboard/logs",
-      icon: <History className="mr-2 h-4 w-4" />,
+      icon: History,
+      title: "Logs",
     },
     {
-      title: "Settings",
+      href: "/dashboard/messages",
+      icon: MessageSquare,
+      title: "Messages",
+    },
+    {
       href: "/dashboard/settings",
-      icon: <Settings className="mr-2 h-4 w-4" />,
+      icon: Settings,
+      title: "Settings",
     },
   ]
 
   return (
-    <nav className="grid items-start px-4 text-sm font-medium">
-      {navItems.map((item, index) => (
-        <Link key={index} href={item.href}>
-          <Button variant="ghost" className={cn("w-full justify-start", pathname === item.href && "bg-muted")}>
-            {item.icon}
-            {item.title}
-          </Button>
+    <nav className="grid items-start gap-2 px-2 text-sm font-medium">
+      {routes.map((route) => (
+        <Link
+          key={route.href}
+          href={route.href}
+          className={cn(
+            "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
+            pathname === route.href && "bg-muted text-primary",
+            isCollapsed && "justify-center",
+          )}
+        >
+          <route.icon className="h-4 w-4" />
+          {!isCollapsed && <span>{route.title}</span>}
         </Link>
       ))}
     </nav>
