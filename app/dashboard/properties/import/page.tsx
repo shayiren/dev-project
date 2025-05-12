@@ -2,17 +2,53 @@
 
 import type React from "react"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useToast } from "@/components/ui/use-toast"
-import { AlertCircle, FileSpreadsheet, Upload, X } from "lucide-react"
+import { AlertCircle, ArrowRight, Check, FileSpreadsheet, Upload, X } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Progress } from "@/components/ui/progress"
 import { addProperties } from "@/utils/storage-utils"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
+import { Stepper, Step, StepDescription, StepTitle } from "@/components/ui/stepper"
+
+// Define the system fields
+const SYSTEM_FIELDS = {
+  required: [
+    { id: "unitNumber", label: "Unit Number", description: "Unique identifier for the unit" },
+    { id: "projectName", label: "Project Name", description: "Name of the project" },
+    { id: "type", label: "Unit Type", description: "Type of unit (Apartment, Villa, etc.)" },
+    { id: "price", label: "Price", description: "Price in numbers" },
+    { id: "area", label: "Total Area", description: "Total area in sqft" },
+  ],
+  optional: [
+    { id: "phase", label: "Phase", description: "Project phase" },
+    { id: "buildingName", label: "Building Name", description: "Name of the building" },
+    { id: "floorNumber", label: "Floor Number", description: "Floor number" },
+    { id: "bedrooms", label: "Bedrooms", description: "Number of bedrooms" },
+    { id: "bathrooms", label: "Bathrooms", description: "Number of bathrooms" },
+    { id: "totalPricePerSqft", label: "Price Per Sqft", description: "Price per square foot" },
+    { id: "status", label: "Status", description: "Unit status (Available, Reserved, etc.)" },
+    { id: "views", label: "Views", description: "View type" },
+    { id: "developerName", label: "Developer Name", description: "Name of the developer" },
+    { id: "location", label: "Location", description: "Location of the property" },
+    { id: "internalArea", label: "Internal Area", description: "Internal area in sqft" },
+    { id: "externalArea", label: "External Area", description: "External area in sqft" },
+    { id: "clientName", label: "Client Name", description: "Name of the client (for Reserved/Sold units)" },
+    { id: "clientEmail", label: "Client Email", description: "Email of the client (for Reserved/Sold units)" },
+    { id: "agentName", label: "Agent Name", description: "Name of the agent (for Reserved/Sold units)" },
+    { id: "agencyName", label: "Agency Name", description: "Name of the agency (for Reserved/Sold units)" },
+  ],
+}
+
+// Combine all fields for easier access
+const ALL_SYSTEM_FIELDS = [...SYSTEM_FIELDS.required, ...SYSTEM_FIELDS.optional]
 
 export default function ImportInventoryPage() {
   const router = useRouter()
@@ -22,7 +58,65 @@ export default function ImportInventoryPage() {
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [previewData, setPreviewData] = useState<any[]>([])
+  const [fileHeaders, setFileHeaders] = useState<string[]>([])
   const [errors, setErrors] = useState<string[]>([])
+  const [currentStep, setCurrentStep] = useState(0)
+  const [columnMapping, setColumnMapping] = useState<Record<string, string>>({})
+  const [mappedData, setMappedData] = useState<any[]>([])
+
+  // Reset column mapping when file changes
+  useEffect(() => {
+    if (fileHeaders.length > 0) {
+      const initialMapping: Record<string, string> = {}
+
+      // Try to auto-map columns based on similar names
+      fileHeaders.forEach((header) => {
+        const normalizedHeader = header.toLowerCase().trim()
+
+        // Find matching system field
+        const matchedField = ALL_SYSTEM_FIELDS.find((field) => {
+          const fieldName = field.id.toLowerCase()
+          // Check for exact match or similar names
+          return (
+            normalizedHeader === fieldName ||
+            normalizedHeader === field.label.toLowerCase() ||
+            normalizedHeader.includes(fieldName) ||
+            fieldName.includes(normalizedHeader)
+          )
+        })
+
+        if (matchedField) {
+          initialMapping[header] = matchedField.id
+        } else {
+          initialMapping[header] = ""
+        }
+      })
+
+      setColumnMapping(initialMapping)
+    } else {
+      setColumnMapping({})
+    }
+  }, [fileHeaders])
+
+  // Update mapped data whenever column mapping changes
+  useEffect(() => {
+    if (previewData.length > 0 && Object.keys(columnMapping).length > 0) {
+      const mapped = previewData.map((row) => {
+        const mappedRow: Record<string, any> = {}
+
+        // Map each field according to the column mapping
+        Object.entries(columnMapping).forEach(([fileColumn, systemField]) => {
+          if (systemField && row[fileColumn] !== undefined) {
+            mappedRow[systemField] = row[fileColumn]
+          }
+        })
+
+        return mappedRow
+      })
+
+      setMappedData(mapped)
+    }
+  }, [previewData, columnMapping])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -47,6 +141,7 @@ export default function ImportInventoryPage() {
     setIsUploading(true)
     setUploadProgress(10)
     setErrors([])
+    setCurrentStep(0)
 
     try {
       const fileType = file.name.split(".").pop()?.toLowerCase()
@@ -62,13 +157,17 @@ export default function ImportInventoryPage() {
 
       setUploadProgress(70)
 
-      // Validate the parsed data
-      const validationErrors = validateData(parsedData)
-      setErrors(validationErrors)
+      // Extract headers from the first row
+      if (parsedData.length > 0) {
+        setFileHeaders(Object.keys(parsedData[0]))
+      }
 
       // Set the preview data
       setPreviewData(parsedData)
       setUploadProgress(100)
+
+      // Move to the next step
+      setCurrentStep(1)
     } catch (error) {
       console.error("Error parsing file:", error)
       toast({
@@ -158,17 +257,16 @@ export default function ImportInventoryPage() {
             const results = []
             for (let i = 0; i < sampleSize; i++) {
               results.push({
-                id: `PROP${1000 + i}`,
-                title: `Property from ${fileName} - ${i + 1}`,
-                projectName: fileName.includes("project") ? "Sample Project" : "New Development",
-                developerName: "Excel Import Developer",
-                location: "Imported Location",
-                price: 500000 + i * 50000,
-                bedrooms: Math.floor(Math.random() * 4) + 1,
-                bathrooms: Math.floor(Math.random() * 3) + 1,
-                area: 1000 + i * 100,
-                type: ["Apartment", "Villa", "Townhouse"][i % 3],
-                status: "Available",
+                "Unit Number": `PROP${1000 + i}`,
+                "Project Name": fileName.includes("project") ? "Sample Project" : "New Development",
+                Developer: "Excel Import Developer",
+                Location: "Imported Location",
+                Price: 500000 + i * 50000,
+                Bedrooms: Math.floor(Math.random() * 4) + 1,
+                Bathrooms: Math.floor(Math.random() * 3) + 1,
+                Area: 1000 + i * 100,
+                Type: ["Apartment", "Villa", "Townhouse"][i % 3],
+                Status: "Available",
               })
             }
 
@@ -184,28 +282,35 @@ export default function ImportInventoryPage() {
     })
   }
 
-  const validateData = (data: any[]): string[] => {
+  const validateMappedData = (): string[] => {
     const errors: string[] = []
 
-    // Check if data is empty
-    if (data.length === 0) {
-      errors.push("The file contains no data")
-      return errors
+    // Check if required fields are mapped
+    const mappedFields = Object.values(columnMapping)
+    const requiredFieldIds = SYSTEM_FIELDS.required.map((field) => field.id)
+
+    const missingRequiredFields = requiredFieldIds.filter((fieldId) => !mappedFields.includes(fieldId))
+
+    if (missingRequiredFields.length > 0) {
+      missingRequiredFields.forEach((fieldId) => {
+        const fieldName = SYSTEM_FIELDS.required.find((f) => f.id === fieldId)?.label || fieldId
+        errors.push(`Required field "${fieldName}" is not mapped to any column`)
+      })
     }
 
-    // Check for required fields
-    data.forEach((row, index) => {
+    // Check for data issues in mapped data
+    mappedData.forEach((row, index) => {
       const rowNum = index + 1
-      if (!row.unit && !row.unitNumber) errors.push(`Row ${rowNum}: Missing unit number`)
-      if (!row.project && !row.projectName) errors.push(`Row ${rowNum}: Missing project name`)
-      if (!row.price) errors.push(`Row ${rowNum}: Missing price`)
-      if (!row.area) errors.push(`Row ${rowNum}: Missing area`)
-      if (!row.type) errors.push(`Row ${rowNum}: Missing type`)
-    })
 
-    // Check for required client details based on status
-    data.forEach((row, index) => {
-      const rowNum = index + 1
+      // Check required fields have values
+      requiredFieldIds.forEach((fieldId) => {
+        if (mappedFields.includes(fieldId) && !row[fieldId] && row[fieldId] !== 0) {
+          const fieldName = SYSTEM_FIELDS.required.find((f) => f.id === fieldId)?.label || fieldId
+          errors.push(`Row ${rowNum}: Missing value for required field "${fieldName}"`)
+        }
+      })
+
+      // Check for required client details based on status
       if (["Reserved", "Under Offer", "Sold"].includes(row.status)) {
         if (!row.clientName) errors.push(`Row ${rowNum}: Missing client name for ${row.status} property`)
         if (!row.clientEmail) errors.push(`Row ${rowNum}: Missing client email for ${row.status} property`)
@@ -217,7 +322,11 @@ export default function ImportInventoryPage() {
   }
 
   const handleImport = async () => {
-    if (errors.length > 0) {
+    // Validate the mapped data
+    const validationErrors = validateMappedData()
+    setErrors(validationErrors)
+
+    if (validationErrors.length > 0) {
       toast({
         title: "Validation errors",
         description: "Please fix the errors before importing",
@@ -229,8 +338,8 @@ export default function ImportInventoryPage() {
     setIsUploading(true)
 
     try {
-      // Process preview data to match property structure
-      const newProperties = previewData.map((item) => {
+      // Process mapped data to match property structure
+      const newProperties = mappedData.map((item) => {
         // Generate a unique ID if not provided
         const id =
           item.id ||
@@ -243,17 +352,17 @@ export default function ImportInventoryPage() {
         const internalArea = item.internalArea || Math.round(area * 0.8)
         const externalArea = item.externalArea || area - internalArea
         const price = Number(item.price) || 0
-        const pricePerSqft = item.pricePerSqft || (area > 0 ? Math.round(price / area) : 0)
+        const pricePerSqft = item.totalPricePerSqft || (area > 0 ? Math.round(price / area) : 0)
 
         return {
           id,
-          unitNumber: item.unit || item.unitNumber || `Unit-${id}`,
-          projectName: item.project || item.projectName || "Unknown Project",
+          unitNumber: item.unitNumber || `Unit-${id}`,
+          projectName: item.projectName || "Unknown Project",
           phase: item.phase || "",
-          buildingName: item.building || "",
-          floorNumber: item.floor || 0,
+          buildingName: item.buildingName || "",
+          floorNumber: item.floorNumber || 0,
           type: item.type || "Apartment",
-          bedrooms: Number(item.beds || item.bedrooms) || 0,
+          bedrooms: Number(item.bedrooms) || 0,
           bathrooms: Number(item.bathrooms) || 0,
           area: area,
           internalArea,
@@ -264,7 +373,7 @@ export default function ImportInventoryPage() {
           price: price,
           status: item.status || "Available",
           views: item.views || "",
-          developerName: item.developer || item.developerName || "Unknown Developer",
+          developerName: item.developerName || "Unknown Developer",
           location: item.location || "Unknown Location",
           floorPlan: item.floorPlan || "/placeholder.svg?height=400&width=600",
           imageUrl: item.imageUrl || "/placeholder.svg?height=400&width=600",
@@ -338,10 +447,47 @@ export default function ImportInventoryPage() {
   const handleCancel = () => {
     setFile(null)
     setPreviewData([])
+    setFileHeaders([])
     setErrors([])
+    setCurrentStep(0)
+    setColumnMapping({})
+    setMappedData([])
     if (fileInputRef.current) {
       fileInputRef.current.value = ""
     }
+  }
+
+  const handleColumnMappingChange = (fileColumn: string, systemField: string) => {
+    setColumnMapping((prev) => ({
+      ...prev,
+      [fileColumn]: systemField,
+    }))
+  }
+
+  const goToNextStep = () => {
+    if (currentStep < 2) {
+      setCurrentStep(currentStep + 1)
+    }
+  }
+
+  const goToPreviousStep = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1)
+    }
+  }
+
+  // Get the count of mapped required fields
+  const getMappedRequiredFieldsCount = () => {
+    const mappedFields = Object.values(columnMapping)
+    const requiredFieldIds = SYSTEM_FIELDS.required.map((field) => field.id)
+    return requiredFieldIds.filter((id) => mappedFields.includes(id)).length
+  }
+
+  // Get the count of mapped optional fields
+  const getMappedOptionalFieldsCount = () => {
+    const mappedFields = Object.values(columnMapping)
+    const optionalFieldIds = SYSTEM_FIELDS.optional.map((field) => field.id)
+    return optionalFieldIds.filter((id) => mappedFields.includes(id)).length
   }
 
   return (
@@ -351,54 +497,330 @@ export default function ImportInventoryPage() {
         <p className="text-muted-foreground">Upload a CSV or Excel file to import multiple units at once</p>
       </div>
 
+      <Stepper value={currentStep} className="mb-8">
+        <Step value={0}>
+          <StepTitle>Upload File</StepTitle>
+          <StepDescription>Select a CSV or Excel file</StepDescription>
+        </Step>
+        <Step value={1}>
+          <StepTitle>Map Columns</StepTitle>
+          <StepDescription>Match your columns to system fields</StepDescription>
+        </Step>
+        <Step value={2}>
+          <StepTitle>Review & Import</StepTitle>
+          <StepDescription>Verify and import your data</StepDescription>
+        </Step>
+      </Stepper>
+
       <Card>
         <CardHeader>
-          <CardTitle>Upload File</CardTitle>
-          <CardDescription>Select a CSV or Excel file containing your inventory data</CardDescription>
+          <CardTitle>
+            {currentStep === 0 && "Upload File"}
+            {currentStep === 1 && "Map Excel Columns"}
+            {currentStep === 2 && "Review & Import"}
+          </CardTitle>
+          <CardDescription>
+            {currentStep === 0 && "Select a CSV or Excel file containing your inventory data"}
+            {currentStep === 1 && "Match your Excel columns to the system fields"}
+            {currentStep === 2 && "Review your data and complete the import"}
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          {!file ? (
-            <div
-              className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-12"
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-            >
-              <FileSpreadsheet className="h-12 w-12 text-muted-foreground mb-4" />
-              <p className="text-lg font-medium mb-2">Drag and drop your file here</p>
-              <p className="text-sm text-muted-foreground mb-4">or click to browse</p>
-              <Input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv,.xls,.xlsx"
-                onChange={handleFileChange}
-                className="max-w-sm"
-              />
-              <p className="text-xs text-muted-foreground mt-4">Supported formats: CSV (.csv), Excel (.xls, .xlsx)</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <FileSpreadsheet className="h-5 w-5 text-primary" />
-                  <span className="font-medium">{file.name}</span>
-                  <span className="text-xs text-muted-foreground">({(file.size / 1024).toFixed(2)} KB)</span>
+          {currentStep === 0 &&
+            (!file ? (
+              <div
+                className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-12"
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+              >
+                <FileSpreadsheet className="h-12 w-12 text-muted-foreground mb-4" />
+                <p className="text-lg font-medium mb-2">Drag and drop your file here</p>
+                <p className="text-sm text-muted-foreground mb-4">or click to browse</p>
+                <Input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv,.xls,.xlsx"
+                  onChange={handleFileChange}
+                  className="max-w-sm"
+                />
+                <p className="text-xs text-muted-foreground mt-4">Supported formats: CSV (.csv), Excel (.xls, .xlsx)</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileSpreadsheet className="h-5 w-5 text-primary" />
+                    <span className="font-medium">{file.name}</span>
+                    <span className="text-xs text-muted-foreground">({(file.size / 1024).toFixed(2)} KB)</span>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={handleCancel}>
+                    <X className="h-4 w-4 mr-1" />
+                    Remove
+                  </Button>
                 </div>
-                <Button variant="ghost" size="sm" onClick={handleCancel}>
-                  <X className="h-4 w-4 mr-1" />
-                  Remove
-                </Button>
+
+                {isUploading && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Processing file...</span>
+                      <span>{uploadProgress}%</span>
+                    </div>
+                    <Progress value={uploadProgress} />
+                  </div>
+                )}
+              </div>
+            ))}
+
+          {currentStep === 1 && fileHeaders.length > 0 && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-medium">Map Your Columns</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Match your Excel columns to our system fields. Required fields are marked with an asterisk (*).
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="bg-muted">
+                    {getMappedRequiredFieldsCount()}/{SYSTEM_FIELDS.required.length} Required Fields
+                  </Badge>
+                  <Badge variant="outline" className="bg-muted">
+                    {getMappedOptionalFieldsCount()}/{SYSTEM_FIELDS.optional.length} Optional Fields
+                  </Badge>
+                </div>
               </div>
 
-              {isUploading && (
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Processing file...</span>
-                    <span>{uploadProgress}%</span>
-                  </div>
-                  <Progress value={uploadProgress} />
-                </div>
-              )}
+              <Tabs defaultValue="all">
+                <TabsList className="mb-4">
+                  <TabsTrigger value="all">All Fields</TabsTrigger>
+                  <TabsTrigger value="required">Required Fields</TabsTrigger>
+                  <TabsTrigger value="optional">Optional Fields</TabsTrigger>
+                  <TabsTrigger value="unmapped">Unmapped Columns</TabsTrigger>
+                </TabsList>
 
+                <TabsContent value="all" className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {fileHeaders.map((header) => (
+                      <div key={header} className="flex items-center gap-2 p-3 border rounded-md">
+                        <div className="flex-1">
+                          <p className="font-medium">{header}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Sample: {previewData[0]?.[header]?.toString().substring(0, 30)}
+                          </p>
+                        </div>
+                        <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                        <div className="w-[180px]">
+                          <Select
+                            value={columnMapping[header] || ""}
+                            onValueChange={(value) => handleColumnMappingChange(header, value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select field" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="not_mapped">-- Not Mapped --</SelectItem>
+                              <SelectItem value="required_disabled" disabled className="font-bold">
+                                Required Fields
+                              </SelectItem>
+                              {SYSTEM_FIELDS.required.map((field) => (
+                                <SelectItem key={field.id} value={field.id}>
+                                  {field.label} *
+                                </SelectItem>
+                              ))}
+                              <SelectItem value="optional_disabled" disabled className="font-bold">
+                                Optional Fields
+                              </SelectItem>
+                              {SYSTEM_FIELDS.optional.map((field) => (
+                                <SelectItem key={field.id} value={field.id}>
+                                  {field.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="required" className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {SYSTEM_FIELDS.required.map((field) => {
+                      const mappedHeader = Object.entries(columnMapping).find(([_, value]) => value === field.id)?.[0]
+
+                      return (
+                        <div
+                          key={field.id}
+                          className={`flex items-center gap-2 p-3 border rounded-md ${
+                            mappedHeader ? "border-green-200 bg-green-50" : "border-amber-200 bg-amber-50"
+                          }`}
+                        >
+                          <div className="flex-1">
+                            <div className="flex items-center gap-1">
+                              <p className="font-medium">{field.label} *</p>
+                              {mappedHeader && <Check className="h-4 w-4 text-green-500" />}
+                            </div>
+                            <p className="text-xs text-muted-foreground">{field.description}</p>
+                          </div>
+                          <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                          <div className="w-[180px]">
+                            <Select
+                              value={mappedHeader || ""}
+                              onValueChange={(header) => {
+                                // First, clear any existing mapping for this field
+                                const updatedMapping = { ...columnMapping }
+                                Object.keys(updatedMapping).forEach((key) => {
+                                  if (updatedMapping[key] === field.id) {
+                                    updatedMapping[key] = ""
+                                  }
+                                })
+
+                                // Then set the new mapping
+                                if (header) {
+                                  updatedMapping[header] = field.id
+                                }
+
+                                setColumnMapping(updatedMapping)
+                              }}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select column" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="not_mapped">-- Not Mapped --</SelectItem>
+                                {fileHeaders.map((header) => (
+                                  <SelectItem key={header} value={header}>
+                                    {header}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="optional" className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {SYSTEM_FIELDS.optional.map((field) => {
+                      const mappedHeader = Object.entries(columnMapping).find(([_, value]) => value === field.id)?.[0]
+
+                      return (
+                        <div
+                          key={field.id}
+                          className={`flex items-center gap-2 p-3 border rounded-md ${
+                            mappedHeader ? "border-green-200 bg-green-50" : ""
+                          }`}
+                        >
+                          <div className="flex-1">
+                            <div className="flex items-center gap-1">
+                              <p className="font-medium">{field.label}</p>
+                              {mappedHeader && <Check className="h-4 w-4 text-green-500" />}
+                            </div>
+                            <p className="text-xs text-muted-foreground">{field.description}</p>
+                          </div>
+                          <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                          <div className="w-[180px]">
+                            <Select
+                              value={mappedHeader || ""}
+                              onValueChange={(header) => {
+                                // First, clear any existing mapping for this field
+                                const updatedMapping = { ...columnMapping }
+                                Object.keys(updatedMapping).forEach((key) => {
+                                  if (updatedMapping[key] === field.id) {
+                                    updatedMapping[key] = ""
+                                  }
+                                })
+
+                                // Then set the new mapping
+                                if (header) {
+                                  updatedMapping[header] = field.id
+                                }
+
+                                setColumnMapping(updatedMapping)
+                              }}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select column" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="not_mapped">-- Not Mapped --</SelectItem>
+                                {fileHeaders.map((header) => (
+                                  <SelectItem key={header} value={header}>
+                                    {header}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="unmapped" className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {fileHeaders
+                      .filter((header) => !columnMapping[header])
+                      .map((header) => (
+                        <div
+                          key={header}
+                          className="flex items-center gap-2 p-3 border rounded-md border-amber-200 bg-amber-50"
+                        >
+                          <div className="flex-1">
+                            <p className="font-medium">{header}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Sample: {previewData[0]?.[header]?.toString().substring(0, 30)}
+                            </p>
+                          </div>
+                          <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                          <div className="w-[180px]">
+                            <Select
+                              value={columnMapping[header] || ""}
+                              onValueChange={(value) => handleColumnMappingChange(header, value)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select field" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="">-- Not Mapped --</SelectItem>
+                                <SelectItem value="" disabled className="font-bold">
+                                  Required Fields
+                                </SelectItem>
+                                {SYSTEM_FIELDS.required.map((field) => (
+                                  <SelectItem key={field.id} value={field.id}>
+                                    {field.label} *
+                                  </SelectItem>
+                                ))}
+                                <SelectItem value="" disabled className="font-bold">
+                                  Optional Fields
+                                </SelectItem>
+                                {SYSTEM_FIELDS.optional.map((field) => (
+                                  <SelectItem key={field.id} value={field.id}>
+                                    {field.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      ))}
+                    {fileHeaders.filter((header) => !columnMapping[header]).length === 0 && (
+                      <div className="col-span-2 p-4 text-center text-muted-foreground">
+                        All columns have been mapped. Great job!
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </div>
+          )}
+
+          {currentStep === 2 && (
+            <div className="space-y-6">
               {errors.length > 0 && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
@@ -414,7 +836,7 @@ export default function ImportInventoryPage() {
                 </Alert>
               )}
 
-              {previewData.length > 0 && (
+              {mappedData.length > 0 && (
                 <div>
                   <h3 className="text-lg font-medium mb-2">Preview</h3>
                   <div className="border rounded-md overflow-auto max-h-[400px]">
@@ -423,31 +845,21 @@ export default function ImportInventoryPage() {
                         <TableRow>
                           <TableHead>Unit</TableHead>
                           <TableHead>Project</TableHead>
-                          <TableHead>Phase</TableHead>
-                          <TableHead>Building</TableHead>
-                          <TableHead>Floor</TableHead>
                           <TableHead>Type</TableHead>
                           <TableHead>Beds</TableHead>
                           <TableHead>Area (sqft)</TableHead>
-                          <TableHead>Price/sqft</TableHead>
                           <TableHead>Price</TableHead>
                           <TableHead>Status</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {previewData.map((item, index) => (
+                        {mappedData.map((item, index) => (
                           <TableRow key={index}>
-                            <TableCell>{item.unit || item.unitNumber || "Unknown"}</TableCell>
-                            <TableCell>{item.project || item.projectName || "Unknown"}</TableCell>
-                            <TableCell>{item.phase || "NA"}</TableCell>
-                            <TableCell>{item.building || "NA"}</TableCell>
-                            <TableCell>{item.floor || "NA"}</TableCell>
+                            <TableCell>{item.unitNumber || "Unknown"}</TableCell>
+                            <TableCell>{item.projectName || "Unknown"}</TableCell>
                             <TableCell>{item.type || "Unknown"}</TableCell>
-                            <TableCell>{item.beds || item.bedrooms || 0}</TableCell>
+                            <TableCell>{item.bedrooms || 0}</TableCell>
                             <TableCell>{item.area || 0}</TableCell>
-                            <TableCell>
-                              ${item.pricePerSqft || Math.round((item.price || 0) / (item.area || 1))}
-                            </TableCell>
                             <TableCell>${Number(item.price || 0).toLocaleString()}</TableCell>
                             <TableCell>{item.status || "Available"}</TableCell>
                           </TableRow>
@@ -457,70 +869,108 @@ export default function ImportInventoryPage() {
                   </div>
                 </div>
               )}
+
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between p-3 bg-muted rounded-md">
+                  <span className="font-medium">Total Units</span>
+                  <span>{mappedData.length}</span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-muted rounded-md">
+                  <span className="font-medium">Required Fields Mapped</span>
+                  <span>
+                    {getMappedRequiredFieldsCount()}/{SYSTEM_FIELDS.required.length}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-muted rounded-md">
+                  <span className="font-medium">Optional Fields Mapped</span>
+                  <span>
+                    {getMappedOptionalFieldsCount()}/{SYSTEM_FIELDS.optional.length}
+                  </span>
+                </div>
+              </div>
             </div>
           )}
         </CardContent>
         <CardFooter className="flex justify-between">
-          <Button variant="outline" onClick={() => router.back()}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleImport}
-            disabled={!file || isUploading || errors.length > 0 || previewData.length === 0}
-          >
-            <Upload className="h-4 w-4 mr-2" />
-            Import {previewData.length > 0 ? `${previewData.length} Units` : ""}
-          </Button>
+          {currentStep === 0 ? (
+            <Button variant="outline" onClick={() => router.back()}>
+              Cancel
+            </Button>
+          ) : (
+            <Button variant="outline" onClick={goToPreviousStep}>
+              Back
+            </Button>
+          )}
+
+          {currentStep < 2 ? (
+            <Button
+              onClick={goToNextStep}
+              disabled={
+                (currentStep === 0 && !file) ||
+                (currentStep === 1 && getMappedRequiredFieldsCount() < SYSTEM_FIELDS.required.length)
+              }
+            >
+              Continue
+            </Button>
+          ) : (
+            <Button
+              onClick={handleImport}
+              disabled={
+                isUploading ||
+                errors.length > 0 ||
+                mappedData.length === 0 ||
+                getMappedRequiredFieldsCount() < SYSTEM_FIELDS.required.length
+              }
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Import {mappedData.length > 0 ? `${mappedData.length} Units` : ""}
+            </Button>
+          )}
         </CardFooter>
       </Card>
 
-      <div className="mt-8">
-        <h2 className="text-xl font-bold mb-4">File Format Guidelines</h2>
-        <Card>
-          <CardContent className="pt-6">
-            <p className="mb-4">Your CSV or Excel file should include the following columns:</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <h3 className="font-medium mb-2">Required Fields:</h3>
-                <ul className="list-disc pl-5 space-y-1">
-                  <li>unit - Unit number</li>
-                  <li>project - Project name</li>
-                  <li>type - Unit type</li>
-                  <li>price - Price (numeric)</li>
-                  <li>area - Total area in sqft (numeric)</li>
-                </ul>
+      {currentStep === 0 && (
+        <div className="mt-8">
+          <h2 className="text-xl font-bold mb-4">File Format Guidelines</h2>
+          <Card>
+            <CardContent className="pt-6">
+              <p className="mb-4">Your CSV or Excel file should include the following columns:</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <h3 className="font-medium mb-2">Required Fields:</h3>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Unit Number - Unique identifier for the unit</li>
+                    <li>Project Name - Name of the project</li>
+                    <li>Unit Type - Type of unit (Apartment, Villa, etc.)</li>
+                    <li>Price - Price in numbers</li>
+                    <li>Total Area - Total area in sqft</li>
+                  </ul>
+                </div>
+                <div>
+                  <h3 className="font-medium mb-2">Optional Fields:</h3>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Phase - Project phase</li>
+                    <li>Building Name - Name of the building</li>
+                    <li>Floor Number - Floor number</li>
+                    <li>Bedrooms - Number of bedrooms</li>
+                    <li>Price Per Sqft - Price per square foot</li>
+                    <li>Status - Unit status (Available, Reserved, Under Offer, Sold)</li>
+                    <li>Client Name - Client name (required for Reserved, Under Offer, Sold)</li>
+                    <li>Agent Name - Agent name (required for Reserved, Under Offer, Sold)</li>
+                  </ul>
+                </div>
               </div>
-              <div>
-                <h3 className="font-medium mb-2">Optional Fields:</h3>
-                <ul className="list-disc pl-5 space-y-1">
-                  <li>phase - Project phase</li>
-                  <li>building - Building name</li>
-                  <li>floor - Floor number</li>
-                  <li>beds - Number of bedrooms</li>
-                  <li>pricePerSqft - Price per square foot</li>
-                  <li>status - Unit status (Available, Reserved, Under Offer, Sold)</li>
-                  <li>bathrooms - Number of bathrooms</li>
-                  <li>views - View type</li>
-                  <li>clientName - Client name (required for Reserved, Under Offer, Sold)</li>
-                  <li>clientEmail - Client email (required for Reserved, Under Offer, Sold)</li>
-                  <li>agentName - Agent name (required for Reserved, Under Offer, Sold)</li>
-                  <li>agencyName - Agency name (optional)</li>
-                </ul>
+              <div className="mt-4">
+                <h3 className="font-medium mb-2">Don't worry about column names!</h3>
+                <p className="text-sm text-muted-foreground">
+                  Our column mapping feature allows you to match your Excel columns to our system fields, so you don't
+                  need to rename your columns before importing.
+                </p>
               </div>
-            </div>
-            <div className="mt-4">
-              <h3 className="font-medium mb-2">Sample CSV Format:</h3>
-              <pre className="bg-muted p-4 rounded-md overflow-x-auto text-xs">
-                unit,project,phase,building,floor,type,beds,area,pricePerSqft,price,status
-                <br />
-                "A101","Azure Towers","Phase 1","Tower A",1,"Apartment",2,1200,625,750000,"Available"
-                <br />
-                "PH501","Sunset Heights","Phase 2","Tower B",5,"Penthouse",3,2100,595,1250000,"Reserved"
-              </pre>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }
