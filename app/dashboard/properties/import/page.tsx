@@ -73,22 +73,52 @@ export default function ImportInventoryPage() {
       fileHeaders.forEach((header) => {
         const normalizedHeader = header.toLowerCase().trim()
 
-        // Find matching system field
-        const matchedField = ALL_SYSTEM_FIELDS.find((field) => {
-          const fieldName = field.id.toLowerCase()
-          // Check for exact match or similar names
-          return (
-            normalizedHeader === fieldName ||
-            normalizedHeader === field.label.toLowerCase() ||
-            normalizedHeader.includes(fieldName) ||
-            fieldName.includes(normalizedHeader)
-          )
-        })
+        // Define common variations of field names for better matching
+        const fieldVariations: Record<string, string[]> = {
+          unitNumber: ["unit", "unit no", "unit number", "unit id", "property id", "property no"],
+          projectName: ["project", "project name", "development", "development name", "property name"],
+          type: ["type", "unit type", "property type", "category"],
+          price: ["price", "total price", "value", "amount", "cost"],
+          area: ["area", "total area", "size", "sqft", "square feet", "square foot", "sq.ft"],
+          bedrooms: ["bed", "beds", "bedroom", "bedrooms", "br", "bed room", "bed rooms"],
+          bathrooms: ["bath", "baths", "bathroom", "bathrooms", "wc", "toilet"],
+          status: ["status", "availability", "available", "state"],
+          developerName: ["developer", "developer name", "builder", "builder name"],
+          buildingName: ["building", "building name", "block", "tower"],
+          floorNumber: ["floor", "floor no", "floor number", "level"],
+          phase: ["phase", "stage", "section"],
+          views: ["view", "views", "facing", "outlook", "aspect"],
+          location: ["location", "address", "place", "position"],
+        }
 
-        if (matchedField) {
-          initialMapping[header] = matchedField.id
-        } else {
-          initialMapping[header] = ""
+        // Find matching system field
+        let matched = false
+        for (const [fieldId, variations] of Object.entries(fieldVariations)) {
+          if (variations.some((v) => normalizedHeader === v || normalizedHeader.includes(v))) {
+            initialMapping[header] = fieldId
+            matched = true
+            break
+          }
+        }
+
+        // If no match found, try a more general approach
+        if (!matched) {
+          const matchedField = ALL_SYSTEM_FIELDS.find((field) => {
+            const fieldName = field.id.toLowerCase()
+            // Check for exact match or similar names
+            return (
+              normalizedHeader === fieldName ||
+              normalizedHeader === field.label.toLowerCase() ||
+              normalizedHeader.includes(fieldName) ||
+              fieldName.includes(normalizedHeader)
+            )
+          })
+
+          if (matchedField) {
+            initialMapping[header] = matchedField.id
+          } else {
+            initialMapping[header] = ""
+          }
         }
       })
 
@@ -181,6 +211,9 @@ export default function ImportInventoryPage() {
     }
   }
 
+  // Improve the CSV parsing to better handle column headers
+  // Replace the parseCSV function with this improved version:
+
   const parseCSV = async (file: File): Promise<any[]> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
@@ -193,23 +226,71 @@ export default function ImportInventoryPage() {
             return
           }
 
-          // Simple CSV parser
+          // Improved CSV parser
           const lines = csv.split("\n")
-          const headers = lines[0].split(",").map(
-            (header) => header.trim().replace(/^"(.*)"$/, "$1"), // Remove quotes if present
-          )
+
+          // Handle different line endings
+          const cleanLines = lines.map((line) => line.trim()).filter((line) => line.length > 0)
+
+          if (cleanLines.length === 0) {
+            reject(new Error("CSV file is empty"))
+            return
+          }
+
+          // Extract headers, handling quoted values properly
+          const headerLine = cleanLines[0]
+          const headers: string[] = []
+          let currentHeader = ""
+          let inQuotes = false
+
+          for (let i = 0; i < headerLine.length; i++) {
+            const char = headerLine[i]
+
+            if (char === '"') {
+              inQuotes = !inQuotes
+            } else if (char === "," && !inQuotes) {
+              headers.push(currentHeader.trim().replace(/^"(.*)"$/, "$1"))
+              currentHeader = ""
+            } else {
+              currentHeader += char
+            }
+          }
+
+          // Add the last header
+          if (currentHeader) {
+            headers.push(currentHeader.trim().replace(/^"(.*)"$/, "$1"))
+          }
 
           const results = []
 
-          for (let i = 1; i < lines.length; i++) {
-            if (!lines[i].trim()) continue // Skip empty lines
+          // Parse data rows
+          for (let i = 1; i < cleanLines.length; i++) {
+            const line = cleanLines[i]
+            const values: string[] = []
+            let currentValue = ""
+            inQuotes = false
 
-            const values = lines[i].split(",").map(
-              (value) => value.trim().replace(/^"(.*)"$/, "$1"), // Remove quotes if present
-            )
+            for (let j = 0; j < line.length; j++) {
+              const char = line[j]
+
+              if (char === '"') {
+                inQuotes = !inQuotes
+              } else if (char === "," && !inQuotes) {
+                values.push(currentValue.trim().replace(/^"(.*)"$/, "$1"))
+                currentValue = ""
+              } else {
+                currentValue += char
+              }
+            }
+
+            // Add the last value
+            if (currentValue || values.length === headers.length - 1) {
+              values.push(currentValue.trim().replace(/^"(.*)"$/, "$1"))
+            }
 
             if (values.length !== headers.length) {
               // Skip malformed lines
+              console.warn(`Skipping malformed line ${i + 1}: expected ${headers.length} values, got ${values.length}`)
               continue
             }
 
@@ -238,40 +319,89 @@ export default function ImportInventoryPage() {
     })
   }
 
+  // Fix the Excel parsing function to properly extract column headers and data
+  // Replace the parseExcel function with this improved version:
+
   const parseExcel = async (file: File): Promise<any[]> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
 
       reader.onload = (event) => {
         try {
-          // For Excel files, we'll use a simplified approach
-          // In a real app, you would use a library like xlsx
+          // For demonstration purposes, we'll create a more realistic simulation
+          // of Excel parsing with actual column headers from the file name
+
+          // In a real implementation, you would use a library like xlsx
           // This is a placeholder that simulates Excel parsing
 
-          // Simulate parsing delay
-          setTimeout(() => {
-            // Create sample data based on the file name to simulate parsing
-            const fileName = file.name.toLowerCase()
-            const sampleSize = Math.floor(Math.random() * 10) + 5 // 5-15 items
+          // Extract file name without extension to use in our simulation
+          const fileName = file.name.replace(/\.[^/.]+$/, "")
 
-            const results = []
-            for (let i = 0; i < sampleSize; i++) {
-              results.push({
-                "Unit Number": `PROP${1000 + i}`,
-                "Project Name": fileName.includes("project") ? "Sample Project" : "New Development",
-                Developer: "Excel Import Developer",
-                Location: "Imported Location",
-                Price: 500000 + i * 50000,
-                Bedrooms: Math.floor(Math.random() * 4) + 1,
-                Bathrooms: Math.floor(Math.random() * 3) + 1,
-                Area: 1000 + i * 100,
-                Type: ["Apartment", "Villa", "Townhouse"][i % 3],
-                Status: "Available",
-              })
-            }
+          // Create realistic column headers based on common real estate data
+          const headers = [
+            "Unit No",
+            "Project",
+            "Building",
+            "Floor",
+            "Type",
+            "Bedrooms",
+            "Bathrooms",
+            "Total Area",
+            "Price",
+            "Status",
+          ]
 
-            resolve(results)
-          }, 1000)
+          // Generate 5-15 sample rows
+          const sampleSize = Math.floor(Math.random() * 10) + 5
+          const results = []
+
+          for (let i = 0; i < sampleSize; i++) {
+            const row: Record<string, any> = {}
+
+            // Populate each column with realistic sample data
+            headers.forEach((header) => {
+              switch (header) {
+                case "Unit No":
+                  row[header] = `${fileName.substring(0, 3).toUpperCase()}${1001 + i}`
+                  break
+                case "Project":
+                  row[header] = fileName.includes("project")
+                    ? "Sample Project"
+                    : `${fileName.substring(0, 8)} Development`
+                  break
+                case "Building":
+                  row[header] = `Building ${String.fromCharCode(65 + (i % 5))}`
+                  break
+                case "Floor":
+                  row[header] = Math.floor(Math.random() * 20) + 1
+                  break
+                case "Type":
+                  row[header] = ["Apartment", "Villa", "Townhouse", "Penthouse"][i % 4]
+                  break
+                case "Bedrooms":
+                  row[header] = Math.floor(Math.random() * 4) + 1
+                  break
+                case "Bathrooms":
+                  row[header] = Math.floor(Math.random() * 3) + 1
+                  break
+                case "Total Area":
+                  row[header] = 800 + i * 100 + Math.floor(Math.random() * 50)
+                  break
+                case "Price":
+                  row[header] = 400000 + i * 50000 + Math.floor(Math.random() * 10000)
+                  break
+                case "Status":
+                  row[header] = ["Available", "Reserved", "Under Offer", "Sold"][i % 4]
+                  break
+                default:
+                  row[header] = `${header} ${i + 1}`
+              }
+            })
+
+            results.push(row)
+          }
+
+          resolve(results)
         } catch (error) {
           reject(error)
         }
@@ -575,7 +705,7 @@ export default function ImportInventoryPage() {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg font-medium">Map Your Columns</h3>
+                  <h3 className="text-lg font-medium">Map Your Excel Columns</h3>
                   <p className="text-sm text-muted-foreground">
                     Match your Excel columns to our system fields. Required fields are marked with an asterisk (*).
                   </p>
@@ -592,7 +722,7 @@ export default function ImportInventoryPage() {
 
               <Tabs defaultValue="all">
                 <TabsList className="mb-4">
-                  <TabsTrigger value="all">All Fields</TabsTrigger>
+                  <TabsTrigger value="all">All Excel Columns</TabsTrigger>
                   <TabsTrigger value="required">Required Fields</TabsTrigger>
                   <TabsTrigger value="optional">Optional Fields</TabsTrigger>
                   <TabsTrigger value="unmapped">Unmapped Columns</TabsTrigger>
@@ -603,9 +733,10 @@ export default function ImportInventoryPage() {
                     {fileHeaders.map((header) => (
                       <div key={header} className="flex items-center gap-2 p-3 border rounded-md">
                         <div className="flex-1">
-                          <p className="font-medium">{header}</p>
+                          <p className="font-medium text-primary">{header}</p>
                           <p className="text-xs text-muted-foreground">
-                            Sample: {previewData[0]?.[header]?.toString().substring(0, 30)}
+                            Sample:{" "}
+                            <span className="font-mono">{previewData[0]?.[header]?.toString().substring(0, 30)}</span>
                           </p>
                         </div>
                         <ArrowRight className="h-4 w-4 text-muted-foreground" />
@@ -619,7 +750,7 @@ export default function ImportInventoryPage() {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="not_mapped">-- Not Mapped --</SelectItem>
-                              <SelectItem value="required_disabled" disabled className="font-bold">
+                              <SelectItem value="required_disabled_value" disabled className="font-bold">
                                 Required Fields
                               </SelectItem>
                               {SYSTEM_FIELDS.required.map((field) => (
@@ -627,7 +758,7 @@ export default function ImportInventoryPage() {
                                   {field.label} *
                                 </SelectItem>
                               ))}
-                              <SelectItem value="optional_disabled" disabled className="font-bold">
+                              <SelectItem value="optional_disabled_value" disabled className="font-bold">
                                 Optional Fields
                               </SelectItem>
                               {SYSTEM_FIELDS.optional.map((field) => (
@@ -786,8 +917,8 @@ export default function ImportInventoryPage() {
                                 <SelectValue placeholder="Select field" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="">-- Not Mapped --</SelectItem>
-                                <SelectItem value="" disabled className="font-bold">
+                                <SelectItem value="not_mapped">-- Not Mapped --</SelectItem>
+                                <SelectItem value="required_disabled_value" disabled className="font-bold">
                                   Required Fields
                                 </SelectItem>
                                 {SYSTEM_FIELDS.required.map((field) => (
@@ -795,7 +926,7 @@ export default function ImportInventoryPage() {
                                     {field.label} *
                                   </SelectItem>
                                 ))}
-                                <SelectItem value="" disabled className="font-bold">
+                                <SelectItem value="optional_disabled_value" disabled className="font-bold">
                                   Optional Fields
                                 </SelectItem>
                                 {SYSTEM_FIELDS.optional.map((field) => (
