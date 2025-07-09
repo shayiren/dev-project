@@ -1,14 +1,181 @@
 "use client"
 
-import { Suspense } from "react"
-import DevelopmentContent from "@/components/development-content"
-import Loading from "./loading"
+import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Building2, Search } from "lucide-react"
+import { DevelopmentCard } from "@/components/development-card"
+import { InventoryStats } from "@/components/inventory-stats"
+import { DevelopmentTable } from "@/components/development-table"
 
-export default function DevelopmentPage() {
+export default function DevelopmentContent() {
+  const searchParams = useSearchParams()
+  const [searchTerm, setSearchTerm] = useState("")
+  const [filterLocation, setFilterLocation] = useState("all")
+  const [filterStatus, setFilterStatus] = useState("all")
+  const [properties, setProperties] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    // Simulate fetching data
+    const fetchData = async () => {
+      try {
+        // In a real app, this would be an API call
+        const response = await fetch("/api/properties")
+          .then((res) => res.json())
+          .catch(() => {
+            // Fallback to mock data if API fails
+            return mockData
+          })
+
+        setProperties(response)
+        setLoading(false)
+      } catch (error) {
+        console.error("Error fetching data:", error)
+        setProperties(mockData)
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [])
+
+  // Filter properties based on search term, location, and status
+  const filteredProperties = properties.filter((property) => {
+    const matchesSearch =
+      property.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      property.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      property.unitNumber.toLowerCase().includes(searchTerm.toLowerCase())
+
+    const matchesLocation = filterLocation === "all" || property.location === filterLocation
+    const matchesStatus = filterStatus === "all" || property.status === filterStatus
+
+    return matchesSearch && matchesLocation && matchesStatus
+  })
+
+  // Get unique locations for filter
+  const locations = [...new Set(properties.map((property) => property.location))]
+
+  // Calculate stats
+  const totalUnits = properties.length
+  const availableUnits = properties.filter((p) => p.status === "Available").length
+  const reservedUnits = properties.filter((p) => p.status === "Reserved" || p.status === "Under Offer").length
+  const soldUnits = properties.filter((p) => p.status === "Sold").length
+
   return (
-    <Suspense fallback={<Loading />}>
-      <DevelopmentContent />
-    </Suspense>
+    <div className="flex flex-col gap-6 p-6">
+      <div className="flex flex-col gap-2">
+        <h1 className="text-3xl font-bold tracking-tight">Development</h1>
+        <p className="text-muted-foreground">Manage and track all your development projects and units</p>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <InventoryStats
+          totalUnits={totalUnits}
+          availableUnits={availableUnits}
+          reservedUnits={reservedUnits}
+          soldUnits={soldUnits}
+        />
+      </div>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Development Projects</CardTitle>
+            <CardDescription>View and manage all your development projects</CardDescription>
+          </div>
+          <Button>Add Project</Button>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-center gap-2">
+                <div className="relative w-full md:w-80">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="search"
+                    placeholder="Search projects..."
+                    className="pl-8"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                <Select value={filterLocation} onValueChange={setFilterLocation}>
+                  <SelectTrigger className="w-full md:w-[180px]">
+                    <SelectValue placeholder="Location" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Locations</SelectItem>
+                    {locations.map((location) => (
+                      <SelectItem key={location} value={location}>
+                        {location}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                  <SelectTrigger className="w-full md:w-[180px]">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="Available">Available</SelectItem>
+                    <SelectItem value="Reserved">Reserved</SelectItem>
+                    <SelectItem value="Under Offer">Under Offer</SelectItem>
+                    <SelectItem value="Sold">Sold</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <Tabs defaultValue="grid" className="w-full">
+              <TabsList className="grid w-full max-w-[400px] grid-cols-2">
+                <TabsTrigger value="grid">Grid View</TabsTrigger>
+                <TabsTrigger value="table">Table View</TabsTrigger>
+              </TabsList>
+              <TabsContent value="grid" className="mt-6">
+                {loading ? (
+                  <div className="flex justify-center p-8">
+                    <p>Loading properties...</p>
+                  </div>
+                ) : filteredProperties.length > 0 ? (
+                  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    {filteredProperties.map((property) => (
+                      <DevelopmentCard key={property.id} property={property} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center p-8">
+                    <Building2 className="h-12 w-12 text-muted-foreground" />
+                    <h3 className="mt-4 text-lg font-semibold">No properties found</h3>
+                    <p className="text-muted-foreground">Try adjusting your search or filters</p>
+                  </div>
+                )}
+              </TabsContent>
+              <TabsContent value="table" className="mt-6">
+                {loading ? (
+                  <div className="flex justify-center p-8">
+                    <p>Loading properties...</p>
+                  </div>
+                ) : filteredProperties.length > 0 ? (
+                  <DevelopmentTable properties={filteredProperties} />
+                ) : (
+                  <div className="flex flex-col items-center justify-center p-8">
+                    <Building2 className="h-12 w-12 text-muted-foreground" />
+                    <h3 className="mt-4 text-lg font-semibold">No properties found</h3>
+                    <p className="text-muted-foreground">Try adjusting your search or filters</p>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   )
 }
 
